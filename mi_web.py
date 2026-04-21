@@ -15,15 +15,16 @@ from xhtml2pdf import pisa
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="📡", layout="wide")
 
 # ==============================================================================
-# --- 2. CSS AVANZADO (DISEÑO CORPORATIVO Y POSICIONAMIENTO EXTREMO) ---
+# --- 2. CSS AVANZADO (DISEÑO CORPORATIVO LIMPIO Y SEGURO) ---
 # ==============================================================================
 st.markdown(
     """
     <style>
         :root { --coral-red: #FF4B4B; --anerpro-blue: #002C5F; }
         
-        /* Ocultar navegación nativa de Streamlit */
+        /* Ocultar navegación y cabecera nativa de Streamlit */
         [data-testid="stSidebarNav"] { display: none !important; }
+        [data-testid="stSidebarHeader"] { display: none !important; }
         
         /* Subir la cabecera del cuerpo principal */
         .block-container {
@@ -48,7 +49,7 @@ st.markdown(
             line-height: 1.1;
         }
 
-        /* Botones estilo Anerpro */
+        /* --- BOTONES --- */
         .stButton button[kind="primary"], [data-testid="stFormSubmitButton"] button {
             background-color: var(--coral-red) !important;
             color: white !important;
@@ -58,61 +59,49 @@ st.markdown(
             border-radius: 8px !important;
         }
 
-        /* --- REDISEÑO TOTAL SIDEBAR --- */
+        /* Botón de Cerrar Sesión (Estilo Secundario en Sidebar) */
+        [data-testid="stSidebar"] button[kind="secondary"] {
+            border: 1px solid #ddd !important;
+            color: #888 !important;
+            background-color: transparent !important;
+            border-radius: 8px !important;
+            font-weight: 500 !important;
+            transition: all 0.3s ease;
+        }
+        [data-testid="stSidebar"] button[kind="secondary"]:hover {
+            border-color: var(--coral-red) !important;
+            color: var(--coral-red) !important;
+        }
+
+        /* --- SIDEBAR Y MENÚ --- */
         [data-testid="stSidebar"] {
             background-color: #fcfcfc;
-            position: relative !important; /* Para anclar el botón de cerrar sesión */
         }
         
-        /* Ocultar línea superior por defecto de Streamlit */
-        [data-testid="stSidebarHeader"] {
-            background: transparent !important;
-            border-bottom: none !important;
-            padding-bottom: 0px !important;
-        }
-        
-        /* Eliminar padding superior para subir el logo al máximo */
+        /* Quitar padding extra del sidebar para que el logo suba */
         [data-testid="stSidebarContent"] {
-            padding-top: 0rem !important;
+            padding-top: 1.5rem !important;
         }
 
-        /* Contenedor Logo: Arriba a la izquierda con raya divisoria DEBAJO */
-        .logo-box {
-            margin-top: -60px !important; /* Fuerza la subida tapando el header original */
-            padding: 10px 0px 15px 15px;
-            border-bottom: 1.5px solid #e6e9ef;
-            margin-bottom: 15px;
-            text-align: left;
-        }
-
-        /* --- COMPACTAR MENÚ Y RADIO --- */
-        /* Quitar margen superior del expander */
+        /* Expander Menu - Eliminar huecos */
         .st-expander {
             margin-top: 0px !important;
         }
-        
-        /* Quitar padding interno del expander para pegar las opciones al título "Menu" */
         .st-expanderContent {
-            padding-top: 0px !important;
-            padding-bottom: 0px !important;
+            padding: 0px 5px !important;
         }
-        
-        /* Eliminar huecos en el widget de Radio */
         div[data-testid="stRadio"] > div {
-            gap: 2px !important;
-            margin-top: -10px !important;
+            gap: 0px !important;
         }
 
-        /* Ajuste de etiquetas para evitar cortes en iconos y texto */
+        /* Evitar cortes de texto en las opciones */
         [data-testid="stSidebar"] [data-testid="stRadio"] label {
             overflow: visible !important;
-            padding: 2px 0px !important;
+            padding: 5px 0px !important;
             display: flex !important;
             align-items: center !important;
-            min-height: 30px !important;
             width: 100% !important;
         }
-        
         [data-testid="stSidebar"] [data-testid="stRadio"] label p {
             font-size: 0.95rem !important;
             white-space: nowrap !important;
@@ -120,37 +109,13 @@ st.markdown(
             margin-bottom: 0px !important;
         }
 
-        /* Estilo del encabezado "Menu" */
+        /* Encabezado "Menu" */
         .st-expanderHeader {
             font-weight: bold !important;
             color: #31333F !important;
             border: 1px solid #f0f2f6 !important;
             border-radius: 8px !important;
             background-color: white !important;
-        }
-
-        /* --- BOTÓN CIERRE: ABAJO DEL TODO --- */
-        [data-testid="stSidebar"] [data-testid="stButton"] {
-            position: absolute !important;
-            bottom: 25px !important;
-            left: 5% !important;
-            width: 90% !important;
-        }
-        
-        [data-testid="stSidebar"] [data-testid="stButton"] button {
-            width: 100% !important;
-            background-color: transparent !important;
-            color: #888 !important;
-            border: 1px solid #ddd !important;
-            padding: 0.4rem 1rem !important;
-            font-size: 0.9rem !important;
-            border-radius: 8px !important;
-            transition: all 0.3s ease;
-        }
-        
-        [data-testid="stSidebar"] [data-testid="stButton"] button:hover {
-            border-color: var(--coral-red) !important;
-            color: var(--coral-red) !important;
         }
     </style>
     """,
@@ -213,7 +178,7 @@ if check_password():
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     KEYWORDS = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
 
-    # --- 5. FUNCIONES DE EXTRACCIÓN (Lógica de Código Antiguo) ---
+    # --- 5. FUNCIONES DE EXTRACCIÓN ---
     def normalizar(t): return ''.join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn') if t else ""
     
     def formatear_moneda(v):
@@ -256,24 +221,28 @@ if check_password():
                 except: return []
         return []
 
-    # --- 6. BARRA LATERAL (DISEÑO DEFINITIVO) ---
+    # --- 6. BARRA LATERAL (DISEÑO SEGURO) ---
     with st.sidebar:
-        # Contenedor que agrupa el logo y su borde inferior 
-        st.markdown('<div class="logo-box">', unsafe_allow_html=True)
+        # Logo arriba de forma nativa
         if os.path.exists("logo.png"): 
-            st.image("logo.png", width=120)
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.image("logo.png", width=140)
+            
+        # Raya divisoria bajo el logo
+        st.markdown('<hr style="margin: 5px 0px 15px 0px; border-top: 1.5px solid #e6e9ef;">', unsafe_allow_html=True)
         
         # Expander "Menu" sin texto de navegación
         with st.expander("Menu", expanded=False):
             opcion = st.radio(
-                "", # Se elimina el texto "Navegación:"
+                "", 
                 ["🔍 Búsqueda Licitaciones", "📁 Archivo e Informes", "📄 Generación Informes"],
                 label_visibility="collapsed"
             )
         
-        # Botón de cierre de sesión (El CSS lo moverá abajo del todo)
-        if st.button("Cerrar Sesión"):
+        # Espaciador nativo para empujar el botón "Cerrar Sesión" al fondo
+        st.markdown("<div style='height: 45vh;'></div>", unsafe_allow_html=True)
+        
+        # Botón de cierre de sesión (El CSS lo estiliza limpio)
+        if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state["password_correct"] = False
             st.rerun()
 
