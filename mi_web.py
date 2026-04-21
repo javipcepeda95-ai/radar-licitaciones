@@ -63,40 +63,42 @@ st.markdown(
             background-color: #fcfcfc;
         }
         
-        /* Eliminamos el padding superior nativo de la barra lateral */
+        /* Eliminamos el padding superior de la barra lateral */
         [data-testid="stSidebarContent"] {
             padding-top: 0rem !important;
         }
 
-        /* Forzamos que el primer bloque de contenido suba al máximo */
-        [data-testid="stSidebarContent"] > div:first-child {
-            padding-top: 10px !important;
-        }
-
-        /* Contenedor del logo: lo subimos y lo pegamos a la izquierda */
+        /* Forzamos el logo a la esquina superior izquierda absoluta del sidebar */
         .logo-container-sidebar {
-            margin-top: -35px !important; /* Sube por encima del margen estándar */
-            margin-left: -15px !important; /* Pega a la izquierda */
-            margin-bottom: 15px !important;
-            text-align: left !important;
+            position: absolute;
+            top: 10px !important;
+            left: 15px !important;
+            z-index: 999999;
+            width: 120px;
+        }
+        
+        /* Bajamos el resto del contenido del sidebar para que no choque con el logo arriba */
+        .sidebar-content-spacer {
+            margin-top: 80px !important;
         }
 
         /* --- CORRECCIÓN LUPA Y MENÚ --- */
-        /* Aseguramos que los labels del radio no corten los iconos */
+        /* Ajuste para que el texto no se corte y quepa en una línea */
         [data-testid="stSidebar"] [data-testid="stRadio"] label {
             overflow: visible !important;
-            padding-left: 5px !important;
-            min-height: 30px !important;
+            padding: 5px 0px !important;
             display: flex !important;
             align-items: center !important;
+            width: 100% !important;
         }
         
         [data-testid="stSidebar"] [data-testid="stRadio"] label p {
-            font-size: 1.05rem !important;
-            margin-bottom: 0 !important;
+            font-size: 0.95rem !important;
+            white-space: nowrap !important;
+            margin-left: 5px !important;
         }
 
-        /* Estilo del expander "Menu" para que sea profesional */
+        /* Estilo del expander "Menu" */
         .st-expanderHeader {
             font-weight: bold !important;
             color: #31333F !important;
@@ -107,7 +109,7 @@ st.markdown(
         
         .st-expanderContent {
             border: none !important;
-            padding-top: 10px !important;
+            padding-top: 5px !important;
         }
     </style>
     """,
@@ -216,23 +218,25 @@ if check_password():
 
     # --- 6. BARRA LATERAL (LOGO ARRIBA A LA IZQUIERDA Y MENU DESPLEGABLE) ---
     with st.sidebar:
-        # Contenedor del logo forzado arriba a la izquierda
+        # Inyectamos el logo arriba del todo con posicionamiento absoluto
         st.markdown('<div class="logo-container-sidebar">', unsafe_allow_html=True)
         if os.path.exists("logo.png"): 
-            st.image("logo.png", width=125)
+            st.image("logo.png", width=120)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        st.write("---")
+        # Espaciador para no pisar el logo con el menú
+        st.markdown('<div class="sidebar-content-spacer"></div>', unsafe_allow_html=True)
         
-        # El "Menu" es un expander (tecla desplegable) que oculta las opciones
+        # El "Menu" es un expander (tecla desplegable)
         with st.expander("Menu", expanded=False):
+            # Eliminamos el texto "Navegación:" para que quepa todo en una línea
             opcion = st.radio(
-                "Navegación:",
+                "",
                 ["🔍 Búsqueda Licitaciones", "📁 Archivo e Informes", "📄 Generación Informes"],
                 label_visibility="collapsed"
             )
         
-        st.markdown("<div style='height: 40vh;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 35vh;'></div>", unsafe_allow_html=True)
         if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state["password_correct"] = False
             st.rerun()
