@@ -8,7 +8,7 @@ import os
 import re
 import io
 import tempfile
-from google import genai
+import google.generativeai as genai
 from xhtml2pdf import pisa
 
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
