@@ -11,17 +11,27 @@ import io
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="🤖", layout="wide")
 
-# --- TRUCO CSS PARA SUBIR EL LOGO AL MÁXIMO ---
+# --- TRUCO CSS: LOGO ARRIBA Y BOTÓN ABAJO ---
 st.markdown(
     """
     <style>
-        /* Elimina el espacio superior de la barra lateral */
+        /* Elimina espacios innecesarios en la parte superior */
         [data-testid="stSidebarUserContent"] {
             padding-top: 0rem;
+            display: flex;
+            flex-direction: column;
+            height: 90vh; /* Altura de la barra lateral */
         }
-        /* Ajusta el margen superior de la primera imagen en la sidebar */
+        
+        /* Empuja el último elemento (botón cerrar sesión) al fondo */
+        [data-testid="stSidebarUserContent"] > div:last-child {
+            margin-top: auto;
+            padding-bottom: 20px;
+        }
+
+        /* Sube el logo un poco más */
         [data-testid="stSidebar"] img {
-            margin-top: -20px;
+            margin-top: -30px;
         }
     </style>
     """,
@@ -122,23 +132,26 @@ if check_password():
             json.dump(historial_actual, f, indent=4, ensure_ascii=False)
         return historial_actual, añadidas
 
-    # --- 5. BARRA LATERAL ---
+    # --- 5. BARRA LATERAL (Sidebar) ---
     with st.sidebar:
-        # El logo ahora subirá gracias al CSS inyectado arriba
+        # LOGO ARRIBA
         if os.path.exists("logo.png"):
-            st.image("logo.png", width=160)
+            st.image("logo.png", width=150)
             st.divider()
         
-        if st.button("Cerrar Sesión"):
-            st.session_state["password_correct"] = False
-            st.rerun()
-        
-        st.divider()
+        # MANTENIMIENTO EN EL MEDIO
         st.caption("⚙️ Mantenimiento")
         if st.button("Vaciar Memoria (Reset)"):
             if os.path.exists(ARCHIVO_HISTORIAL):
                 os.remove(ARCHIVO_HISTORIAL)
                 st.rerun()
+
+        # CIERRE DE SESIÓN AL FINAL (Gracias al CSS flexbox)
+        # Ponemos un contenedor vacío para ayudar al margen si es necesario
+        st.write("") 
+        if st.button("Cerrar Sesión"):
+            st.session_state["password_correct"] = False
+            st.rerun()
 
     # --- 6. CUERPO PRINCIPAL ---
     st.title("Radar de Licitaciones 🏢")
@@ -177,19 +190,13 @@ if check_password():
 
             historial, nuevas = guardar_en_historial(ofertas_encontradas)
             if nuevas > 0:
-                st.success(f"¡Detectadas {nuevas} nuevas!")
+                st.success(f"¡Se han detectado {nuevas} nuevas!")
                 df_nuevas = pd.DataFrame(historial[-nuevas:])
                 for c in columnas_ver:
                     if c not in df_nuevas.columns: df_nuevas[c] = "N/A"
-                
-                st.dataframe(
-                    df_nuevas[columnas_ver], 
-                    column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, 
-                    hide_index=True, 
-                    use_container_width=True
-                )
+                st.dataframe(df_nuevas[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             else:
-                st.info("No hay novedades interesantes.")
+                st.info("No hay novedades.")
 
     with tab2:
         historial = cargar_y_limpiar_historial()
@@ -202,22 +209,10 @@ if check_password():
             if busqueda:
                 df_hist = df_hist[df_hist.apply(lambda row: busqueda.lower() in row.astype(str).str.lower().str.cat(), axis=1)]
 
-            st.dataframe(
-                df_hist[columnas_ver], 
-                column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, 
-                hide_index=True, 
-                use_container_width=True
-            )
+            st.dataframe(df_hist[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df_hist[columnas_ver].to_excel(writer, index=False, sheet_name='Licitaciones')
             
-            st.download_button(
-                label="📥 Descargar Historial en Excel", 
-                data=buffer.getvalue(), 
-                file_name=f"informe_licitaciones_{datetime.now().strftime('%d_%m_%Y')}.xlsx", 
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-        else:
-            st.info("El historial está vacío.")
+            st.download_button(label="📥 Descargar Historial en Excel", data=buffer.getvalue(), file_name="informe_licitaciones.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
