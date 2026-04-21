@@ -12,25 +12,71 @@ import io
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="📡", layout="wide")
 
 # ==============================================================================
-# --- 2. CSS MÍNIMO Y SEGURO ---
+# --- 2. CSS DEFINITIVO (BOTÓN CLAVADO AL FONDO) ---
 # ==============================================================================
 st.markdown(
     """
     <style>
-        /* Ocultar barra superior de navegación de Streamlit */
+        :root { --coral-red: #FF4B4B; }
+        
+        /* Ocultar barra superior de Streamlit */
         [data-testid="stSidebarNav"] { display: none !important; }
         
-        /* Ajustar el logo para que quede pegado arriba */
+        /* Ajustar el logo arriba */
         [data-testid="stSidebar"] img {
             margin-top: -30px !important;
             margin-bottom: 20px !important;
         }
 
-        /* Hacer que la barra lateral sea una columna flexible para bajar el botón */
+        /* --- LA MAGIA DEL BOTÓN --- */
+        /* 1. Convertimos la barra lateral en un contenedor de altura fija */
         [data-testid="stSidebarUserContent"] {
+            position: relative !important;
+            min-height: 88vh !important;
+        }
+        
+        /* 2. Agarramos el ÚLTIMO elemento de la barra (el botón) y lo anclamos al fondo absoluto */
+        [data-testid="stSidebarUserContent"] > div > div:last-child {
+            position: absolute !important;
+            bottom: 0px !important;
+            width: 100% !important;
+        }
+
+        /* --- ESTILOS DE CABECERA --- */
+        .radar-header {
             display: flex;
-            flex-direction: column;
-            min-height: 90vh; 
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .radar-header h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: #31333F;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Pestañas rojas */
+        button[data-baseweb="tab"]:nth-child(1) p {
+            color: var(--coral-red) !important;
+            font-weight: 600 !important;
+            font-size: 1.1rem;
+        }
+        button[data-baseweb="tab"]:nth-child(2) p {
+            font-size: 1.1rem;
+        }
+
+        /* Botón rojo */
+        .stButton button[kind="primary"] {
+            background-color: var(--coral-red) !important;
+            color: white !important;
+            border: none !important;
+            padding: 0.5rem 2rem !important;
+            font-weight: 600 !important;
+        }
+        .stButton button[kind="primary"]:hover {
+            background-color: #e34343 !important;
         }
     </style>
     """,
@@ -122,38 +168,35 @@ if check_password():
             if os.path.exists(ARCHIVO_HISTORIAL): os.remove(ARCHIVO_HISTORIAL)
             st.rerun()
             
-        # Este div vacío con flex-grow empuja todo lo que hay debajo hasta el final
-        st.markdown("<div style='flex-grow: 1;'></div>", unsafe_allow_html=True)
-        
+        # IMPORTANTE: Este botón DEBE ser el último código dentro de st.sidebar
+        # El CSS "position: absolute" lo agarrará automáticamente y lo pegará abajo
         if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state["password_correct"] = False
             st.rerun()
 
     # --- 7. CUERPO PRINCIPAL ---
-    # Título + Antena Parabólica Profesional
+    # Icono de Radar de Pantalla (Scope)
     st.markdown(
         """
-        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#31333F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 10a7.31 7.31 0 0 0 10 10Z"></path>
-                <path d="m9 15 3-3"></path>
-                <path d="M17 13a6 6 0 0 0-6-6"></path>
-                <path d="M21 9a10 10 0 0 0-10-10"></path>
+        <div class="radar-header">
+            <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#31333F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" stroke-width="1.5"></circle>
+                <circle cx="12" cy="12" r="6" stroke-width="1" stroke-dasharray="2 2"></circle>
+                <line x1="12" y1="2" x2="12" y2="22" stroke-width="1" opacity="0.3"></line>
+                <line x1="2" y1="12" x2="22" y2="12" stroke-width="1" opacity="0.3"></line>
+                <line x1="12" y1="12" x2="19" y2="5" stroke="#FF4B4B" stroke-width="2"></line>
                 <circle cx="12" cy="12" r="2" fill="#FF4B4B" stroke="#FF4B4B"></circle>
-                <path d="M17 17v5"></path>
-                <path d="M21 22h-8"></path>
             </svg>
-            <h1 style="margin: 0; font-size: 2.8rem; color: #31333F; font-weight: 700;">Radar de Licitaciones</h1>
+            <h1>Radar de Licitaciones</h1>
         </div>
         """, unsafe_allow_html=True
     )
 
-    # Pestañas nativas limpias
     tab1, tab2 = st.tabs(["🔍 Buscar Nuevas", "📁 Archivo e Informes"])
     columnas_ver = ["Publicado", "Organismo", "Título", "Presupuesto", "Palabras Detectadas", "Enlace Oficial"]
 
     with tab1:
-        st.write("") # Pequeño margen
+        st.write("") 
         if st.button("Actualizar y Buscar Ahora", type="primary"):
             with st.spinner('Escaneando plataforma del Estado...'):
                 feed = feedparser.parse(URL_FEED)
