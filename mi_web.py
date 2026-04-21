@@ -13,7 +13,7 @@ st.set_page_config(page_title="Radar Pro Anerpro", page_icon="🤖", layout="wid
 
 # --- 2. LOGO DE EMPRESA (Barra lateral) ---
 if os.path.exists("logo.png"):
-    st.sidebar.image("logo.png", width=200)
+    st.sidebar.image("logo.png", width=150)
     st.sidebar.divider()
 else:
     st.sidebar.warning("⚠️ No se encontró 'logo.png' en el repositorio.")
