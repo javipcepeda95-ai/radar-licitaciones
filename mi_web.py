@@ -8,7 +8,7 @@ import os
 import re
 import io
 import tempfile
-import google.generativeai as genai
+import google.generativeai as genai  # Importación correcta para la nube
 from xhtml2pdf import pisa
 
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
