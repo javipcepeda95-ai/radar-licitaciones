@@ -14,16 +14,14 @@ st.set_page_config(page_title="Radar Pro Licitaciones", page_icon="🤖", layout
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
-    if st.session_state["password_correct"]:
-        return True
+    if st.session_state["password_correct"]: return True
     st.title("🔒 Acceso Restringido")
-    password_input = st.text_input("Introduce la contraseña para acceder:", type="password")
+    password_input = st.text_input("Introduce la contraseña:", type="password")
     if st.button("Entrar"):
         if password_input == st.secrets["PASSWORD_WEB"]:
             st.session_state["password_correct"] = True
             st.rerun()
-        else:
-            st.error("⚠️ Contraseña incorrecta")
+        else: st.error("⚠️ Contraseña incorrecta")
     return False
 
 if check_password():
@@ -31,24 +29,37 @@ if check_password():
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     DIAS_RETENCION = 5
     
-    KEYWORDS = [
-        "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", 
-        "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", 
-        "industria 4.0", "scada", "certificado", "autoconsumo", "plc", 
-        "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", 
-        "digitalizacion industrial", "gemelo digital", "auditoria energetica"
-    ]
+    KEYWORDS = ["energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
 
     def normalizar_texto(texto):
         if not texto: return ""
         return ''.join(c for c in unicodedata.normalize('NFD', texto.lower()) if unicodedata.category(c) != 'Mn')
 
     def extraer_presupuesto(texto):
-        # Busca patrones numéricos seguidos de EUR, € o euros
-        patron = r"([\d\.]+,\d{2})\s*(?:EUR|€|euros)"
-        match = re.search(patron, texto, re.IGNORECASE)
-        if match:
-            return match.group(1) + " €"
+        """Escáner mejorado de presupuesto."""
+        if not texto: return "Ver en PDF"
+        
+        # Eliminar etiquetas HTML que puedan estorbar
+        texto_limpio = re.sub(r'<[^>]*>', ' ', texto)
+        
+        # Patrones comunes en licitaciones españolas:
+        # 1. Importe: 123.456,78 EUR
+        # 2. Valor estimado: 123.456,78 (sin moneda al lado)
+        # 3. 123456 €
+        patrones = [
+            r"(?:Importe|Importe neto|Valor estimado|PVP):\s*([\d\.]+(?:,\d{1,2})?)", # Busca después de la palabra clave
+            r"([\d\.]+(?:\d{3})?,\d{2})\s*(?:EUR|€|Euros)", # Formato estándar con decimales
+            r"([\d\.]+(?:\d{3})?)\s*(?:EUR|€|Euros)" # Formato sin decimales
+        ]
+        
+        for p in patrones:
+            match = re.search(p, texto_limpio, re.IGNORECASE)
+            if match:
+                valor = match.group(1).strip()
+                # Si el valor es solo un punto o coma por error, seguimos buscando
+                if len(valor) > 1:
+                    return f"{valor} €"
+        
         return "Ver en PDF"
 
     def cargar_y_limpiar_historial():
@@ -61,24 +72,20 @@ if check_password():
             for item in datos:
                 try:
                     fecha_str = item.get("Detectado el") or item.get("Detectado")
-                    if "-" in str(fecha_str):
-                        fecha_item = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M:%S")
-                    else:
-                        fecha_item = datetime.strptime(fecha_str, "%d/%m/%Y %H:%M")
-                    if fecha_item >= fecha_limite:
-                        datos_limpios.append(item)
+                    fecha_item = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M:%S") if "-" in str(fecha_str) else datetime.strptime(fecha_str, "%d/%m/%Y %H:%M")
+                    if fecha_item >= fecha_limite: datos_limpios.append(item)
                 except: pass
             return datos_limpios
         return []
 
     def guardar_en_historial(nuevas_ofertas):
         historial_actual = cargar_y_limpiar_historial()
-        enlaces_vistos = {oferta["Enlace Oficial"] for oferta in historial_actual}
+        enlaces_vistos = {o["Enlace Oficial"] for o in historial_actual}
         añadidas = 0
-        for oferta in nuevas_ofertas:
-            if oferta["Enlace Oficial"] not in enlaces_vistos:
-                oferta["Detectado el"] = datetime.now().strftime("%d/%m/%Y %H:%M")
-                historial_actual.append(oferta)
+        for o in nuevas_ofertas:
+            if o["Enlace Oficial"] not in enlaces_vistos:
+                o["Detectado el"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                historial_actual.append(o)
                 añadidas += 1
         with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f:
             json.dump(historial_actual, f, indent=4, ensure_ascii=False)
@@ -98,6 +105,7 @@ if check_password():
 
     st.title("Radar de Licitaciones 🏢")
     tab1, tab2 = st.tabs(["🔍 Buscar Nuevas", "📁 Archivo e Informes"])
+    columnas_ver = ["Publicado", "Organismo", "Título", "Presupuesto", "Palabras Detectadas", "Enlace Oficial"]
 
     with tab1:
         if st.button("Actualizar y Buscar Ahora", type="primary"):
@@ -107,9 +115,10 @@ if check_password():
                 for entrada in feed.entries:
                     resumen_raw = entrada.summary if 'summary' in entrada else ""
                     texto_completo = normalizar_texto(entrada.title + " " + resumen_raw)
-                    coincidencias = sorted(list(set([kw.upper() for kw in KEYWORDS if normalizar_texto(kw) in texto_completo])))
+                    coin = sorted(list(set([kw.upper() for kw in KEYWORDS if normalizar_texto(kw) in texto_completo])))
                     
-                    if coincidencias:
+                    if coin:
+                        # Extraer Organismo
                         organismo = "No detectado"
                         match_org = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", resumen_raw, re.I | re.S)
                         if match_org: organismo = match_org.group(1).strip()
@@ -123,42 +132,37 @@ if check_password():
                             "Organismo": organismo,
                             "Título": entrada.title,
                             "Presupuesto": extraer_presupuesto(resumen_raw),
-                            "Palabras Detectadas": ", ".join(coincidencias), 
+                            "Palabras Detectadas": ", ".join(coin), 
                             "Enlace Oficial": entrada.link
                         })
 
             historial, nuevas = guardar_en_historial(ofertas_encontradas)
             if nuevas > 0:
-                st.success(f"¡Detectadas {nuevas} nuevas oportunidades!")
+                st.success(f"¡Detectadas {nuevas} nuevas!")
                 df_nuevas = pd.DataFrame(historial[-nuevas:])
-                columnas = ["Publicado", "Organismo", "Título", "Presupuesto", "Palabras Detectadas", "Enlace Oficial"]
-                st.dataframe(df_nuevas[columnas], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
+                for c in columnas_ver: 
+                    if c not in df_nuevas.columns: df_nuevas[c] = "N/A"
+                st.dataframe(df_nuevas[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             else:
-                st.info("No hay novedades interesantes.")
+                st.info("No hay novedades.")
 
     with tab2:
         historial = cargar_y_limpiar_historial()
         if historial:
             df_historial = pd.DataFrame(list(reversed(historial)))
-            columnas_ver = ["Publicado", "Organismo", "Título", "Presupuesto", "Palabras Detectadas", "Enlace Oficial"]
+            for c in columnas_ver: 
+                if c not in df_historial.columns: df_historial[c] = "N/A"
             
-            # Buscador en historial
-            busqueda = st.text_input("Filtrar historial por nombre o título:")
+            busqueda = st.text_input("Filtrar historial:")
             if busqueda:
                 df_historial = df_historial[df_historial.apply(lambda row: busqueda.lower() in row.astype(str).str.lower().str.cat(), axis=1)]
 
             st.dataframe(df_historial[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             
-            # --- BOTÓN DE EXCEL ---
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df_historial[columnas_ver].to_excel(writer, index=False, sheet_name='Licitaciones')
             
-            st.download_button(
-                label="📥 Descargar este listado en Excel",
-                data=buffer.getvalue(),
-                file_name=f"informe_licitaciones_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            st.download_button(label="📥 Descargar Excel", data=buffer.getvalue(), file_name="informe.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.info("Historial vacío.")
