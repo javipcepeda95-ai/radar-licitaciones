@@ -33,6 +33,12 @@ st.markdown(
             padding-top: 2rem !important; 
         }
 
+        /* Quitar el borde del formulario de login para que quede limpio */
+        [data-testid="stForm"] {
+            border: none !important;
+            padding: 0 !important;
+        }
+
         /* --- ESTILOS DE CABECERA --- */
         .radar-header {
             display: flex;
@@ -47,21 +53,18 @@ st.markdown(
             font-weight: 700;
             color: #31333F;
             margin: 0;
-            /* Solución al texto cortado por arriba: */
-            padding-top: 10px; 
-            padding-bottom: 5px;
-            line-height: 1.2; 
+            padding: 0;
         }
 
-        /* Botón rojo corporativo (Actualizar) */
-        .stButton button[kind="primary"] {
+        /* Botón rojo corporativo (Actualizar / Entrar) */
+        .stButton button[kind="primary"], [data-testid="stFormSubmitButton"] button {
             background-color: var(--coral-red) !important;
             color: white !important;
             border: none !important;
             padding: 0.5rem 2rem !important;
             font-weight: 600 !important;
         }
-        .stButton button[kind="primary"]:hover {
+        .stButton button[kind="primary"]:hover, [data-testid="stFormSubmitButton"] button:hover {
             background-color: #e34343 !important;
         }
         
@@ -74,23 +77,47 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- 3. SISTEMA DE SEGURIDAD (Login) ---
+# --- 3. SISTEMA DE SEGURIDAD (Login PANTALLA CENTRADA) ---
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
     if st.session_state["password_correct"]: return True
     
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        if os.path.exists("logo.png"): st.image("logo.png", width=120)
-    with col2: st.title("🔒 Acceso Anerpro")
+    # Damos un poco de espacio por arriba para que no quede pegado al techo
+    st.write("")
+    st.write("")
+    st.write("")
     
-    pwd = st.text_input("Contraseña corporativa:", type="password")
-    if st.button("Entrar", type="primary"):
-        if pwd == st.secrets["PASSWORD_WEB"]:
-            st.session_state["password_correct"] = True
-            st.rerun()
-        else: st.error("⚠️ Contraseña incorrecta")
+    # Creamos 3 columnas. La del medio (col2) es donde irá nuestro contenido.
+    # Al hacerla estrecha (proporción 1, 1.2, 1), el cajetín será más pequeño.
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    
+    with col2:
+        # Logo centrado
+        logo_col1, logo_col2, logo_col3 = st.columns([1, 2, 1])
+        with logo_col2:
+            if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
+            
+        # Título centrado
+        st.markdown("<h3 style='text-align: center; color: #31333F; margin-top: 10px; margin-bottom: 30px; font-weight: 600;'>Acceso al Buscador de Licitaciones</h3>", unsafe_allow_html=True)
+        
+        # El formulario es la clave para que funcione la tecla "Enter"
+        with st.form("login_form"):
+            pwd = st.text_input(
+                "Contraseña corporativa:", 
+                type="password", 
+                label_visibility="collapsed", # Ocultamos la etiqueta de arriba
+                placeholder="Introduce la contraseña corporativa..." # Texto fantasma
+            )
+            # El botón ocupa todo el ancho de nuestra pequeña columna central
+            enviado = st.form_submit_button("Entrar", use_container_width=True)
+            
+            if enviado:
+                if pwd == st.secrets["PASSWORD_WEB"]:
+                    st.session_state["password_correct"] = True
+                    st.rerun()
+                else: 
+                    st.error("⚠️ Contraseña incorrecta")
     return False
 
 if check_password():
