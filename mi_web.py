@@ -35,30 +35,40 @@ if check_password():
         if not texto: return ""
         return ''.join(c for c in unicodedata.normalize('NFD', texto.lower()) if unicodedata.category(c) != 'Mn')
 
+    def formatear_moneda_es(valor_str):
+        """Convierte '48972.16 €' o '48972.16' en '48.972,16 €'"""
+        if not valor_str or "Ver en PDF" in valor_str: return valor_str
+        try:
+            # Limpiamos todo lo que no sea número, punto o coma
+            limpio = "".join(c for c in valor_str if c.isdigit() or c in ".,")
+            
+            # Detectar formato: si tiene punto y coma es 1.234,56 -> normalizar a 1234.56
+            if "." in limpio and "," in limpio:
+                limpio = limpio.replace(".", "").replace(",", ".")
+            elif "," in limpio:
+                limpio = limpio.replace(",", ".")
+            
+            numero = float(limpio)
+            # Formateamos a miles con punto y decimales con coma
+            return f"{numero:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + " €"
+        except:
+            return valor_str
+
     def extraer_presupuesto(texto):
-        """Escáner mejorado de presupuesto."""
         if not texto: return "Ver en PDF"
-        
-        # Eliminar etiquetas HTML que puedan estorbar
         texto_limpio = re.sub(r'<[^>]*>', ' ', texto)
         
-        # Patrones comunes en licitaciones españolas:
-        # 1. Importe: 123.456,78 EUR
-        # 2. Valor estimado: 123.456,78 (sin moneda al lado)
-        # 3. 123456 €
         patrones = [
-            r"(?:Importe|Importe neto|Valor estimado|PVP):\s*([\d\.]+(?:,\d{1,2})?)", # Busca después de la palabra clave
-            r"([\d\.]+(?:\d{3})?,\d{2})\s*(?:EUR|€|Euros)", # Formato estándar con decimales
-            r"([\d\.]+(?:\d{3})?)\s*(?:EUR|€|Euros)" # Formato sin decimales
+            r"(?:Importe|Importe neto|Valor estimado|PVP):\s*([\d\.]+(?:,\d{1,2})?)",
+            r"([\d\.]+(?:\d{3})?,\d{2})\s*(?:EUR|€|Euros)",
+            r"([\d\.]+(?:\d{3})?)\s*(?:EUR|€|Euros)"
         ]
         
         for p in patrones:
             match = re.search(p, texto_limpio, re.IGNORECASE)
             if match:
-                valor = match.group(1).strip()
-                # Si el valor es solo un punto o coma por error, seguimos buscando
-                if len(valor) > 1:
-                    return f"{valor} €"
+                valor_crudo = match.group(1).strip()
+                return formatear_moneda_es(valor_crudo)
         
         return "Ver en PDF"
 
@@ -73,7 +83,11 @@ if check_password():
                 try:
                     fecha_str = item.get("Detectado el") or item.get("Detectado")
                     fecha_item = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M:%S") if "-" in str(fecha_str) else datetime.strptime(fecha_str, "%d/%m/%Y %H:%M")
-                    if fecha_item >= fecha_limite: datos_limpios.append(item)
+                    if fecha_item >= fecha_limite: 
+                        # Formatear el presupuesto guardado por si era viejo
+                        if "Presupuesto" in item:
+                            item["Presupuesto"] = formatear_moneda_es(item["Presupuesto"])
+                        datos_limpios.append(item)
                 except: pass
             return datos_limpios
         return []
@@ -118,7 +132,6 @@ if check_password():
                     coin = sorted(list(set([kw.upper() for kw in KEYWORDS if normalizar_texto(kw) in texto_completo])))
                     
                     if coin:
-                        # Extraer Organismo
                         organismo = "No detectado"
                         match_org = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", resumen_raw, re.I | re.S)
                         if match_org: organismo = match_org.group(1).strip()
@@ -140,8 +153,8 @@ if check_password():
             if nuevas > 0:
                 st.success(f"¡Detectadas {nuevas} nuevas!")
                 df_nuevas = pd.DataFrame(historial[-nuevas:])
-                for c in columnas_ver: 
-                    if c not in df_nuevas.columns: df_nuevas[c] = "N/A"
+                # Asegurar formato en la visualización
+                df_nuevas["Presupuesto"] = df_nuevas["Presupuesto"].apply(formatear_moneda_es)
                 st.dataframe(df_nuevas[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             else:
                 st.info("No hay novedades.")
@@ -150,6 +163,9 @@ if check_password():
         historial = cargar_y_limpiar_historial()
         if historial:
             df_historial = pd.DataFrame(list(reversed(historial)))
+            # Formatear presupuestos antiguos
+            df_historial["Presupuesto"] = df_historial["Presupuesto"].apply(formatear_moneda_es)
+            
             for c in columnas_ver: 
                 if c not in df_historial.columns: df_historial[c] = "N/A"
             
@@ -163,6 +179,6 @@ if check_password():
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df_historial[columnas_ver].to_excel(writer, index=False, sheet_name='Licitaciones')
             
-            st.download_button(label="📥 Descargar Excel", data=buffer.getvalue(), file_name="informe.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button(label="📥 Descargar Excel", data=buffer.getvalue(), file_name="informe_licitaciones.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.info("Historial vacío.")
