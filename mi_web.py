@@ -146,7 +146,7 @@ if check_password():
             with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4, ensure_ascii=False)
         return hist, añadidas
 
-    # --- 6. BARRA LATERAL (NAVEGACIÓN) ---
+    # --- 6. BARRA LATERAL (NAVEGACIÓN CON EMOJIS) ---
     with st.sidebar:
         # Logo
         if os.path.exists("logo.png"): st.image("logo.png", width=140)
@@ -157,7 +157,7 @@ if check_password():
         with st.expander("📡 Radar de Licitaciones", expanded=True):
             opcion_navegacion = st.radio(
                 "Menú", 
-                ["Busqueda Licitaciones", "Archivos e Informes"],
+                ["🔍 Búsqueda de Licitaciones", "📁 Archivos e Informes"],
                 label_visibility="collapsed"
             )
             
@@ -192,7 +192,7 @@ if check_password():
     # --- LÓGICA DE VISTAS BASADA EN EL MENÚ LATERAL ---
     
     # VISTA 1: BÚSQUEDA
-    if opcion_navegacion == "Busqueda Licitaciones":
+    if opcion_navegacion == "🔍 Búsqueda de Licitaciones":
         st.subheader("Búsqueda en Tiempo Real")
         st.write("Pulsa el botón para escanear las últimas publicaciones de la Plataforma de Contratación del Estado.")
         
@@ -223,7 +223,7 @@ if check_password():
             else: st.info("No hay novedades interesantes en este momento. Inténtalo más tarde.")
 
     # VISTA 2: ARCHIVOS E INFORMES
-    elif opcion_navegacion == "Archivos e Informes":
+    elif opcion_navegacion == "📁 Archivos e Informes":
         st.subheader("Base de Datos e Informes")
         hist = cargar_y_limpiar_historial()
         
@@ -239,21 +239,20 @@ if check_password():
             
             st.write("---") # Línea separadora
             
-            # BOTONES JUNTOS AL FINAL DE LA PÁGINA
+            # BOTONES JUNTOS AL FINAL DE LA PÁGINA (CON EMOJIS RESTAURADOS)
             st.markdown('<div class="action-buttons">', unsafe_allow_html=True)
-            col1, col2, col3 = st.columns([2, 2, 4]) # El col3 vacío empuja los botones a la izquierda
+            col1, col2, col3 = st.columns([2, 2, 4]) 
             
             with col1:
                 buffer = io.BytesIO()
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer: df_hist[columnas_ver].to_excel(writer, index=False, sheet_name='Licitaciones')
-                st.download_button(label="Descargar Excel", data=buffer.getvalue(), file_name="informe_licitaciones.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                st.download_button(label="📥 Descargar Excel", data=buffer.getvalue(), file_name="informe_licitaciones.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
             
             with col2:
-                # El botón ahora se llama solo "Reset"
-                if st.button("Reset", use_container_width=True):
+                if st.button("🗑️ Reset", use_container_width=True):
                     if os.path.exists(ARCHIVO_HISTORIAL): os.remove(ARCHIVO_HISTORIAL)
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
             
         else: 
-            st.info("El historial está vacío. Ve a la sección 'Busqueda Licitaciones' para escanear.")
+            st.info("El historial está vacío. Ve a la sección 'Búsqueda de Licitaciones' para escanear.")
