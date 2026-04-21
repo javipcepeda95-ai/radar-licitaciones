@@ -185,7 +185,7 @@ if check_password():
         with st.expander("Menu", expanded=False):
             opcion = st.radio(
                 "Seleccione una opción:",
-                ["🔍 Búsqueda Licitaciones", "📁 Archivo e Informes", "📄 Generación de Informes"],
+                ["🔍 Búsqueda Licitaciones", "📁 Archivo e Informes", "📄 Generación Informes"],
                 label_visibility="collapsed"
             )
         
