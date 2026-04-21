@@ -8,7 +8,6 @@ import os
 import re
 import io
 import tempfile
-# USAMOS TU LIBRERÍA ORIGINAL
 from google import genai
 from xhtml2pdf import pisa
 
@@ -16,7 +15,7 @@ from xhtml2pdf import pisa
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="📡", layout="wide")
 
 # ==============================================================================
-# --- 2. CSS PARA INTERFAZ LIMPIA ---
+# --- 2. CSS PARA LA INTERFAZ WEB ---
 # ==============================================================================
 st.markdown(
     """
@@ -41,29 +40,29 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- EL PROMPT MAESTRO (Tu original de analistaG.py) ---
+# --- PROMPT MAESTRO ---
 PROMPT_MAESTRO = """
 Actúa como un Analista Experto en Contratación Pública. Contexto: ANERPRO es empresa EPCista (ciclo del agua, MT/BT, biogás, automatización). ROLECE: I-5-2; I-6-3; I-8-1; I-9-3; J-2-3; J-3-2; J-4-3; J-5-4; K-9-1; O-4-1; P-1-1; P-2-3; P-3-3; P-5-1; Q-1-3.
 
-ANALIZA los pliegos adjuntos y DEVUELVE ÚNICA Y EXCLUSIVAMENTE UN OBJETO JSON VÁLIDO con la siguiente estructura (sin texto extra):
+ANALIZA los pliegos adjuntos y DEVUELVE ÚNICA Y EXCLUSIVAMENTE UN OBJETO JSON VÁLIDO con la siguiente estructura:
 
 {
   "titulo_oferta": "Nombre exacto del proyecto",
   "datos_iniciales": [
-    {"concepto": "Ubicación", "detalle": "Localidad y provincia"},
-    {"concepto": "Expediente", "detalle": "Entidad y número"},
-    {"concepto": "Visita", "detalle": "¿Obligatoria? Fecha y lugar"},
-    {"concepto": "Plazos", "detalle": "Ejecución"},
-    {"concepto": "Presupuesto", "detalle": "Importe sin IVA"},
-    {"concepto": "Solvencia", "detalle": "¿Cumplimos ROLECE? Si no, solvencia alternativa"},
-    {"concepto": "Medios", "detalle": "Personal y material mínimo"},
-    {"concepto": "Adjudicación", "detalle": "Criterios en %"}
+    {"concepto": "Ubicación", "detalle": "..."},
+    {"concepto": "Expediente", "detalle": "..."},
+    {"concepto": "Visita", "detalle": "..."},
+    {"concepto": "Plazos", "detalle": "..."},
+    {"concepto": "Presupuesto", "detalle": "..."},
+    {"concepto": "Solvencia", "detalle": "..."},
+    {"concepto": "Medios", "detalle": "..."},
+    {"concepto": "Adjudicación", "detalle": "..."}
   ],
-  "alcance": ["Punto clave 1", "Punto clave 2", "Punto clave 3..."],
-  "pros": ["Ventaja 1", "Ventaja 2..."],
-  "contras": ["Riesgo o penalización 1", "Riesgo 2..."],
+  "alcance": ["Punto 1", "Punto 2"],
+  "pros": ["Ventaja 1"],
+  "contras": ["Riesgo 1"],
   "valoracion_puntuacion": "Nota/10",
-  "valoracion_texto": "Justificación ejecutiva."
+  "valoracion_texto": "Justificación."
 }
 """
 
@@ -92,7 +91,7 @@ if check_password():
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     KEYWORDS = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "edar", "tratamiento", "agua", "automatizacion", "scada", "autoconsumo", "plc", "desalinizacion", "ciclo del agua"]
 
-    # --- 5. FUNCIONES AUXILIARES ---
+    # --- 5. FUNCIONES ---
     def normalizar(t): return ''.join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn') if t else ""
     
     def extraer_fecha_cierre(e, texto):
@@ -122,7 +121,7 @@ if check_password():
 
     st.markdown('<div class="radar-header"><div class="radar-title">Radar de Licitaciones</div></div>', unsafe_allow_html=True)
 
-    # --- VISTA 1: BÚSQUEDA ---
+    # --- VISTA 1 & 2 (RADAR Y ARCHIVO) ---
     if opcion == "🔍 Búsqueda Licitaciones":
         if st.button("Actualizar y Buscar Ahora", type="primary"):
             with st.spinner('Escaneando plataforma...'):
@@ -141,11 +140,7 @@ if check_password():
                                 if datetime.strptime(f_cierre, "%d/%m/%Y").date() < hoy: valida = False
                             except: pass
                         if valida:
-                            encontradas.append({
-                                "Publicado": datetime.now().strftime("%d/%m/%Y"),
-                                "Organismo": e.get('author', 'No detectado'),
-                                "Título": e.title, "Fin Plazo": f_cierre, "Palabras Detectadas": ", ".join(coin), "Enlace Oficial": e.link
-                            })
+                            encontradas.append({"Publicado": datetime.now().strftime("%d/%m/%Y"), "Organismo": e.get('author', 'N/D'), "Título": e.title, "Fin Plazo": f_cierre, "Palabras Detectadas": ", ".join(coin), "Enlace Oficial": e.link})
             hist = cargar_historial()
             vistos = {o["Enlace Oficial"] for o in hist}
             nuevas = [o for o in encontradas if o["Enlace Oficial"] not in vistos]
@@ -154,9 +149,8 @@ if check_password():
                 with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4)
                 st.success(f"¡{len(nuevas)} nuevas ofertas!")
                 st.dataframe(pd.DataFrame(nuevas), use_container_width=True)
-            else: st.info("No hay novedades vigentes.")
+            else: st.info("Sin novedades vigentes.")
 
-    # --- VISTA 2: ARCHIVOS ---
     elif opcion == "📁 Archivos e Informes":
         hist = cargar_historial()
         if hist:
@@ -169,68 +163,81 @@ if check_password():
                 st.rerun()
         else: st.info("Historial vacío.")
 
-    # --- VISTA 3: ANALISTA IA (USANDO TU LÓGICA DE analistaG.py) ---
+    # --- VISTA 3: GENERACIÓN DE INFORMES (MOTOR MEJORADO) ---
     elif opcion == "📄 Generación de Informes":
         st.subheader("Analista de Licitaciones IA")
         files = st.file_uploader("Sube pliegos PDF para analizar", type="pdf", accept_multiple_files=True)
         
         if st.button("Analizar con IA y Generar PDF", type="primary") and files:
-            with st.spinner("🧠 Gemini analizando pliegos (usando tu motor original)..."):
+            with st.spinner("🧠 Gemini analizando pliegos (Maquetación Premium)..."):
                 try:
-                    # 1. USAMOS TU CONFIGURACIÓN ORIGINAL 
                     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-                    documentos_para_ia = []
+                    docs_ia = []
                     rutas_temporales = []
-                    
                     for f in files:
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                             tmp.write(f.getvalue())
                             rutas_temporales.append(tmp.name)
-                            # Subida idéntica a tu script 
-                            doc = client.files.upload(file=tmp.name)
-                            documentos_para_ia.append(doc)
+                            docs_ia.append(client.files.upload(file=tmp.name))
                     
-                    # 2. LLAMADA IDÉNTICA A TU SCRIPT 
                     response = client.models.generate_content(
-                        model='gemini-2.5-flash',
-                        contents=[PROMPT_MAESTRO] + documentos_para_ia
+                        model='gemini-2.0-flash', # Usando el modelo más actual disponible
+                        contents=[PROMPT_MAESTRO] + docs_ia
                     )
-                    
-                    # Limpieza archivos temporales
                     for r in rutas_temporales: os.remove(r)
                     
-                    # 3. PROCESAMIENTO DE DATOS IGUAL A analistaG.py 
                     texto_limpio = response.text.strip().replace("```json", "").replace("```", "")
                     datos = json.loads(texto_limpio)
                     
-                    html_filas_tabla = "".join([f"<tr><td><strong>{f['concepto']}</strong></td><td>{f['detalle']}</td></tr>" for f in datos.get('datos_iniciales', [])])
-                    html_alcance = "".join([f"<li>{i}</li>" for i in datos.get('alcance', [])])
-                    html_pros = "".join([f"<li>{i}</li>" for i in datos.get('pros', [])])
-                    html_contras = "".join([f"<li>{i}</li>" for i in datos.get('contras', [])])
+                    # --- MAQUETACIÓN PROFESIONAL (Estilo analistaG) ---
+                    html_filas = "".join([f"<tr><td><strong>{f['concepto']}</strong></td><td>{f['detalle']}</td></tr>" for f in datos.get('datos_iniciales', [])])
+                    ruta_logo = os.path.abspath("logo.png")
+                    logo_tag = f'<img src="{ruta_logo}" height="25" />' if os.path.exists(ruta_logo) else ''
                     
-                    # MAQUETACIÓN CORPORATIVA FIEL A TU DISEÑO 
                     html_final = f"""
+                    <!DOCTYPE html>
                     <html>
-                    <body style="font-family: Helvetica, sans-serif; color: #333; margin: 2cm;">
-                        <h1 style="text-align: center; color: #002C5F; border-bottom: 2px solid #002C5F; padding-bottom: 10px;">ANÁLISIS DE OFERTA: {datos.get('titulo_oferta')}</h1>
-                        <h2 style="background-color: #F0F4F8; color: #002C5F; padding: 5px; border-left: 4px solid #002C5F;">1. DATOS INICIALES</h2>
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">{html_filas_tabla}</table>
-                        <h2 style="background-color: #F0F4F8; color: #002C5F; padding: 5px; border-left: 4px solid #002C5F;">2. ALCANCE</h2>
-                        <ul>{html_alcance}</ul>
-                        <h2 style="background-color: #F0F4F8; color: #002C5F; padding: 5px; border-left: 4px solid #002C5F;">3. ANÁLISIS DE VIABILIDAD</h2>
-                        <p style="color: #006600; font-weight: bold;">VENTAJAS (PROS):</p><ul>{html_pros}</ul>
-                        <p style="color: #990000; font-weight: bold;">RIESGOS (CONTRAS):</p><ul>{html_contras}</ul>
-                        <h2 style="background-color: #F0F4F8; color: #002C5F; padding: 5px; border-left: 4px solid #002C5F;">4. VALORACIÓN</h2>
-                        <div style="font-size: 14pt; font-weight: bold; color: #002C5F;">PUNTUACIÓN: {datos.get('valoracion_puntuacion')}</div>
-                        <p style="text-align: justify;">{datos.get('valoracion_texto')}</p>
+                    <head>
+                    <style>
+                        @page {{
+                            size: A4; margin-top: 3.5cm; margin-bottom: 2.5cm; margin-left: 1.5cm; margin-right: 1.5cm;
+                            @frame header_frame {{ -pdf-frame-content: h_content; top: 1cm; height: 1.5cm; }}
+                            @frame footer_frame {{ -pdf-frame-content: f_content; bottom: 1cm; height: 1cm; }}
+                        }}
+                        body {{ font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #333; line-height: 1.4; }}
+                        #h_content {{ text-align: right; margin-right: 1.5cm; }}
+                        #f_content {{ text-align: right; font-size: 9pt; color: #888; margin-right: 1.5cm; }}
+                        .titulo {{ text-align: center; color: #002C5F; font-size: 16pt; font-weight: bold; border-bottom: 1.5pt solid #002C5F; padding-bottom: 5pt; margin-bottom: 20pt; text-transform: uppercase; }}
+                        .sec {{ background-color: #F0F4F8; color: #002C5F; padding: 4pt 8pt; font-size: 12pt; font-weight: bold; border-left: 4px solid #002C5F; margin-top: 15pt; margin-bottom: 10pt; }}
+                        table {{ width: 100%; border-collapse: collapse; }}
+                        th {{ background-color: #002C5F; color: white; padding: 6pt; text-align: left; }}
+                        td {{ padding: 6pt; border-bottom: 1pt solid #DDD; vertical-align: top; }}
+                        tr:nth-child(even) {{ background-color: #F9F9F9; }}
+                        .pros {{ color: #006600; font-weight: bold; margin-top: 5pt; }}
+                        .contras {{ color: #990000; font-weight: bold; margin-top: 10pt; }}
+                        .puntuacion {{ font-size: 14pt; font-weight: bold; color: #002C5F; margin: 10pt 0; }}
+                        .justificacion {{ text-align: justify; }}
+                    </style>
+                    </head>
+                    <body>
+                        <div id="h_content">{logo_tag}</div>
+                        <div id="f_content">Página <pdf:pagenumber> de <pdf:pagecount></div>
+                        <div class="titulo">ANÁLISIS DE OFERTA: {datos.get('titulo_oferta')}</div>
+                        <div class="sec">1. DATOS INICIALES</div>
+                        <table><tr><th width="25%">CONCEPTO</th><th>DETALLE</th></tr>{html_filas}</table>
+                        <div class="sec">2. ALCANCE</div>
+                        <ul>{"".join([f"<li>{i}</li>" for i in datos.get('alcance', [])])}</ul>
+                        <div class="sec">3. ANÁLISIS DE VIABILIDAD</div>
+                        <div class="pros">VENTAJAS (PROS):</div><ul>{"".join([f"<li>{i}</li>" for i in datos.get('pros', [])])}</ul>
+                        <div class="contras">RIESGOS Y PENALIZACIONES (CONTRAS):</div><ul>{"".join([f"<li>{i}</li>" for i in datos.get('contras', [])])}</ul>
+                        <div class="sec">4. VALORACIÓN FINAL</div>
+                        <div class="puntuacion">PUNTUACIÓN: {datos.get('valoracion_puntuacion')}</div>
+                        <div class="justificacion">{datos.get('valoracion_texto')}</div>
                     </body>
                     </html>
                     """
-                    
                     pdf_buf = io.BytesIO()
                     pisa.CreatePDF(html_final, dest=pdf_buf)
-                    st.success("✅ Informe generado con tu motor analistaG")
-                    st.download_button("📥 Descargar Informe Anerpro", data=pdf_buf.getvalue(), file_name="informe_analisis.pdf", mime="application/pdf")
-                
-                except Exception as e:
-                    st.error(f"Error en el análisis: {str(e)}")
+                    st.success("✅ Informe corporativo generado con éxito.")
+                    st.download_button("📥 Descargar Informe Anerpro", data=pdf_buf.getvalue(), file_name=f"Analisis_Anerpro_{datetime.now().strftime('%Y%m%d')}.pdf", mime="application/pdf")
+                except Exception as e: st.error(f"Error: {e}")
