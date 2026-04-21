@@ -2,3 +2,5 @@ streamlit
 feedparser
 pandas
 openpyxl
+google-genai
+xhtml2pdf
