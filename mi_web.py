@@ -11,38 +11,40 @@ import io
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="🤖", layout="wide")
 
-# --- TRUCO CSS DEFINITIVO (SUBIR LOGO Y BAJAR BOTÓN) ---
+# --- TRUCO CSS "ARTILLERÍA PESADA" ---
 st.markdown(
     """
     <style>
-        /* 1. Eliminar navegación y huecos superiores */
+        /* 1. Eliminamos el espacio superior de Streamlit */
         [data-testid="stSidebarNav"] {display: none !important;}
         
-        /* 2. Configurar la sidebar como un contenedor flexible de altura completa */
-        section[data-testid="stSidebar"] > div:first-child {
+        /* 2. Forzamos la barra lateral a ocupar toda la pantalla */
+        section[data-testid="stSidebar"] .st-emotion-cache-6qob1r {
             padding-top: 0rem !important;
         }
-        
-        [data-testid="stSidebarUserContent"] {
+
+        /* 3. El contenedor principal de la sidebar se convierte en un Flexbox */
+        [data-testid="stSidebarUserContent"] > div:first-child {
             display: flex !important;
             flex-direction: column !important;
-            height: 95vh !important; /* Altura casi total de la ventana */
+            /* Calculamos la altura restando los márgenes internos */
+            min-height: calc(100vh - 40px) !important;
         }
 
-        /* 3. Ajuste del Logo para que suba al máximo */
+        /* 4. Ajuste del Logo para que suba al límite */
         [data-testid="stSidebar"] img {
-            margin-top: -35px !important;
+            margin-top: -45px !important;
             margin-bottom: 0px !important;
         }
 
-        /* 4. EL TRUCO: Empujar el último bloque de la sidebar hacia abajo */
-        /* Seleccionamos el último contenedor de elementos en la sidebar */
-        [data-testid="stSidebarUserContent"] div.stVerticalBlock > div:last-child {
+        /* 5. EL TRUCO DEFINITIVO: 
+           Targeteamos el último contenedor de bloque vertical y le damos margen auto arriba */
+        [data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"] > div:last-child {
             margin-top: auto !important;
-            padding-bottom: 20px !important;
+            padding-bottom: 10px !important;
         }
         
-        /* Estética de los botones para que ocupen todo el ancho */
+        /* Estilo de botones para que sean uniformes */
         .stButton button {
             width: 100%;
         }
@@ -137,21 +139,21 @@ if check_password():
 
     # --- 4. BARRA LATERAL ---
     with st.sidebar:
-        # LOGO (Arriba)
+        # LOGO (Arriba del todo)
         if os.path.exists("logo.png"):
-            st.image("logo.png", width=140)
+            st.image("logo.png", width=130)
         
         st.divider()
         
-        # MANTENIMIENTO (Centro)
+        # SECCIÓN MEDIA
         st.caption("⚙️ Mantenimiento")
         if st.button("Vaciar Memoria (Reset)"):
             if os.path.exists(ARCHIVO_HISTORIAL):
                 os.remove(ARCHIVO_HISTORIAL)
                 st.rerun()
         
-        # BOTÓN CERRAR SESIÓN (El CSS lo empujará al fondo)
-        # Lo ponemos al final de la sidebar
+        # BOTÓN CERRAR SESIÓN 
+        # Al ser el último elemento del bloque sidebar, el CSS lo empujará al fondo
         if st.button("Cerrar Sesión"):
             st.session_state["password_correct"] = False
             st.rerun()
