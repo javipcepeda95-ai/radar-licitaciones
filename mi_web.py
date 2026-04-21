@@ -11,17 +11,13 @@ st.set_page_config(page_title="Radar de Licitaciones", page_icon="🤖", layout=
 
 # --- FUNCIÓN DE LOGIN ---
 def check_password():
-    """Devuelve True si el usuario introdujo la contraseña correcta."""
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
-
     if st.session_state["password_correct"]:
         return True
 
-    # Mostrar formulario de login
     st.title("🔒 Acceso Restringido")
     password_input = st.text_input("Introduce la contraseña para acceder:", type="password")
-    
     if st.button("Entrar"):
         if password_input == st.secrets["PASSWORD_WEB"]:
             st.session_state["password_correct"] = True
@@ -30,7 +26,6 @@ def check_password():
             st.error("⚠️ Contraseña incorrecta")
     return False
 
-# Solo si la contraseña es correcta, ejecutamos el resto del código
 if check_password():
     
     URL_FEED = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
@@ -58,7 +53,8 @@ if check_password():
             fecha_limite = datetime.now() - timedelta(days=DIAS_RETENCION)
             for item in datos:
                 try:
-                    fecha_item = datetime.strptime(item.get("Fecha Captura", ""), "%d/%m/%Y %H:%M")
+                    # Usamos la fecha de captura para la limpieza de los 5 días
+                    fecha_item = datetime.strptime(item.get("Detectado el", ""), "%d/%m/%Y %H:%M")
                     if fecha_item >= fecha_limite: datos_limpios.append(item)
                 except: pass
             return datos_limpios
@@ -70,7 +66,8 @@ if check_password():
         añadidas = 0
         for oferta in nuevas_ofertas:
             if oferta["Enlace Oficial"] not in enlaces_vistos:
-                oferta["Fecha Captura"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                # Fecha en la que el ROBOT la ve (con hora para control interno)
+                oferta["Detectado el"] = datetime.now().strftime("%d/%m/%Y %H:%M")
                 historial_actual.append(oferta)
                 añadidas += 1
         if añadidas > 0:
@@ -81,7 +78,6 @@ if check_password():
     # --- INTERFAZ PRINCIPAL ---
     st.title("Radar de Licitaciones 🏢")
     
-    # Botón de cerrar sesión
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state["password_correct"] = False
         st.rerun()
@@ -96,19 +92,45 @@ if check_password():
                 for entrada in feed.entries:
                     texto = normalizar_texto(entrada.title + " " + (entrada.summary if 'summary' in entrada else ""))
                     coincidencias = [kw.upper() for kw in KEYWORDS if normalizar_texto(kw) in texto]
+                    
                     if coincidencias:
-                        ofertas_encontradas.append({"Título": entrada.title, "Palabras Detectadas": ", ".join(coincidencias), "Enlace Oficial": entrada.link})
+                        # Extraer fecha de publicación original (solo fecha)
+                        try:
+                            fecha_publicacion = datetime(*entrada.published_parsed[:3]).strftime("%d/%m/%Y")
+                        except:
+                            fecha_publicacion = "Desconocida"
+
+                        ofertas_encontradas.append({
+                            "Publicado": fecha_publicacion,
+                            "Título": entrada.title, 
+                            "Palabras Detectadas": ", ".join(coincidencias), 
+                            "Enlace Oficial": entrada.link
+                        })
 
             historial, nuevas = guardar_en_historial(ofertas_encontradas)
             if nuevas > 0:
                 st.success(f"¡Detectadas {nuevas} nuevas!")
-                st.dataframe(pd.DataFrame(historial[-nuevas:]), column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF")}, hide_index=True)
+                df_nuevas = pd.DataFrame(historial[-nuevas:])
+                st.dataframe(
+                    df_nuevas[["Publicado", "Título", "Palabras Detectadas", "Enlace Oficial"]], 
+                    column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF")}, 
+                    hide_index=True,
+                    use_container_width=True
+                )
             else:
-                st.info("Sin novedades.")
+                st.info("Sin novedades interesantes en la última actualización.")
 
     with tab2:
         historial = cargar_y_limpiar_historial()
         if historial:
-            st.dataframe(pd.DataFrame(list(reversed(historial))), column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF"), "Fecha Captura": st.column_config.DatetimeColumn("Detectado")}, hide_index=True, use_container_width=True)
+            st.write(f"Historial de los últimos {DIAS_RETENCION} días:")
+            df_historial = pd.DataFrame(list(reversed(historial)))
+            # Mostramos las columnas relevantes
+            st.dataframe(
+                df_historial[["Publicado", "Título", "Palabras Detectadas", "Enlace Oficial"]], 
+                column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF")}, 
+                hide_index=True, 
+                use_container_width=True
+            )
         else:
             st.info("Archivo vacío.")
