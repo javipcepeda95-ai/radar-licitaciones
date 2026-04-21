@@ -114,7 +114,9 @@ if check_password():
     URL_FEED = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     DIAS_RETENCION = 5
-    KEYWORDS = ["energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
+    
+    # LISTA DE PALABRAS CLAVE ACTUALIZADA (Corregidas las comillas)
+    KEYWORDS = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
 
     # --- 5. FUNCIONES ---
     def normalizar(t): return ''.join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn') if t else ""
@@ -136,28 +138,35 @@ if check_password():
             if m: return formatear_moneda(m.group(1).strip())
         return "Ver en PDF"
 
-    # NUEVO ESCÁNER PROFUNDO DE FECHAS
+    # ESCÁNER DE FECHAS DEFINITIVO
     def extraer_fecha_cierre(e, texto):
-        # 1. Búsqueda profunda en los metadatos ocultos del XML (feedparser dict)
-        # El Gobierno esconde la fecha en la etiqueta "TenderSubmissionDeadlinePeriod"
-        raw_dict_str = str(e).lower()
-        match_xml = re.search(r"tendersubmissiondeadlineperiod.{0,150}?enddate['\"]?:\s*['\"](\d{4}-\d{2}-\d{2})['\"]", raw_dict_str)
-        if match_xml:
-            try: return datetime.strptime(match_xml.group(1), "%Y-%m-%d").strftime("%d/%m/%Y")
+        try:
+            # 1. Búsqueda en el XML crudo (Etiquetas ocultas del Estado)
+            raw = str(e).lower()
+            m1 = re.search(r"['\"]?(?:cbc_)?enddate['\"]?\s*:\s*['\"](\d{4}-\d{2}-\d{2})", raw)
+            if m1: 
+                return datetime.strptime(m1.group(1), "%Y-%m-%d").strftime("%d/%m/%Y")
+        except: pass
+        
+        # 2. Búsqueda salvaje en el texto/HTML
+        if texto:
+            try:
+                # Buscamos en el HTML ignorando etiquetas que rompen la frase
+                m_html = re.search(r"(?:plazo|presentaci.n|l.mite|hasta).*?(?:>|:|\s)(?:&nbsp;|\s)*(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})", texto, re.IGNORECASE | re.DOTALL)
+                if m_html: 
+                    fecha_encontrada = m_html.group(1)
+                    if "-" in fecha_encontrada: return datetime.strptime(fecha_encontrada, "%Y-%m-%d").strftime("%d/%m/%Y")
+                    return fecha_encontrada
+                    
+                # Si falla, quitamos el HTML y buscamos a fuerza bruta
+                t_limpio = re.sub(r'<[^>]*>', ' ', texto).lower()
+                m_txt = re.search(r"(?:plazo|presentaci.n|l.mite|hasta).{0,60}?(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})", t_limpio)
+                if m_txt: 
+                    fecha_encontrada = m_txt.group(1)
+                    if "-" in fecha_encontrada: return datetime.strptime(fecha_encontrada, "%Y-%m-%d").strftime("%d/%m/%Y")
+                    return fecha_encontrada
             except: pass
             
-        # 2. Respaldo: Búsqueda en el texto visible por si acaso
-        if texto:
-            texto_l = re.sub(r'<[^>]*>', ' ', texto).lower()
-            patrones = [
-                r"presentación[^\d]*(\d{2}/\d{2}/\d{4})",
-                r"plazo[^\d]*(\d{2}/\d{2}/\d{4})",
-                r"límite[^\d]*(\d{2}/\d{2}/\d{4})"
-            ]
-            for p in patrones:
-                m = re.search(p, texto_l)
-                if m: return m.group(1)
-                
         return "No indicada"
 
     def cargar_y_limpiar_historial():
@@ -246,7 +255,7 @@ if check_password():
                     coin = sorted(list(set([k.upper() for k in KEYWORDS if normalizar(k) in txt])))
                     
                     if coin:
-                        # Extraemos la fecha límite enviando TODO el objeto (e) para escaneo profundo
+                        # Extraemos la fecha con el escáner definitivo
                         fecha_cierre_str = extraer_fecha_cierre(e, res)
                         es_valida = True
                         
