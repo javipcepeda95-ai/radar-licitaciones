@@ -11,14 +11,7 @@ import io
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="🤖", layout="wide")
 
-# --- 2. LOGO DE EMPRESA (Barra lateral) ---
-if os.path.exists("logo.png"):
-    st.sidebar.image("logo.png", width=150)
-    st.sidebar.divider()
-else:
-    st.sidebar.warning("⚠️ No se encontró 'logo.png' en el repositorio.")
-
-# --- 3. SISTEMA DE SEGURIDAD (Login) ---
+# --- 2. SISTEMA DE SEGURIDAD (Login) ---
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
@@ -35,7 +28,7 @@ def check_password():
     return False
 
 if check_password():
-    # --- 4. CONFIGURACIÓN Y KEYWORDS ---
+    # --- 3. CONFIGURACIÓN Y KEYWORDS ---
     URL_FEED = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     DIAS_RETENCION = 5
@@ -48,32 +41,27 @@ if check_password():
         "digitalizacion industrial", "gemelo digital", "auditoria energetica"
     ]
 
-    # --- 5. FUNCIONES DE PROCESAMIENTO ---
+    # --- 4. FUNCIONES DE PROCESAMIENTO ---
     def normalizar_texto(texto):
         if not texto: return ""
         return ''.join(c for c in unicodedata.normalize('NFD', texto.lower()) if unicodedata.category(c) != 'Mn')
 
     def formatear_moneda_es(valor_str):
-        """Convierte formatos variados a estándar español: 1.234,56 €"""
         if not valor_str or "Ver en PDF" in str(valor_str): return valor_str
         try:
             limpio = "".join(c for c in str(valor_str) if c.isdigit() or c in ".,")
-            # Normalizar a flotante de Python
             if "." in limpio and "," in limpio:
                 limpio = limpio.replace(".", "").replace(",", ".")
             elif "," in limpio:
                 limpio = limpio.replace(",", ".")
-            
             numero = float(limpio)
             return f"{numero:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + " €"
         except:
             return valor_str
 
     def extraer_presupuesto(texto):
-        """Escáner avanzado de cifras monetarias."""
         if not texto: return "Ver en PDF"
-        texto_limpio = re.sub(r'<[^>]*>', ' ', texto) # Quitar HTML
-        
+        texto_limpio = re.sub(r'<[^>]*>', ' ', texto)
         patrones = [
             r"(?:Importe|Importe neto|Valor estimado|PVP):\s*([\d\.]+(?:,\d{1,2})?)",
             r"([\d\.]+(?:\d{3})?,\d{2})\s*(?:EUR|€|Euros)",
@@ -90,16 +78,13 @@ if check_password():
             with open(ARCHIVO_HISTORIAL, 'r', encoding='utf-8') as f:
                 try: datos = json.load(f)
                 except: return []
-            
             fecha_limite = datetime.now() - timedelta(days=DIAS_RETENCION)
             datos_limpios = []
             for item in datos:
                 try:
                     fecha_str = item.get("Detectado el") or item.get("Detectado")
                     f_item = datetime.strptime(str(fecha_str), "%Y-%m-%d %H:%M:%S") if "-" in str(fecha_str) else datetime.strptime(str(fecha_str), "%d/%m/%Y %H:%M")
-                    
                     if f_item >= fecha_limite:
-                        # Aseguramos que el presupuesto del historial también tenga el formato nuevo
                         if "Presupuesto" in item:
                             item["Presupuesto"] = formatear_moneda_es(item["Presupuesto"])
                         datos_limpios.append(item)
@@ -120,19 +105,26 @@ if check_password():
             json.dump(historial_actual, f, indent=4, ensure_ascii=False)
         return historial_actual, añadidas
 
-    # --- 6. INTERFAZ DE USUARIO ---
+    # --- 5. BARRA LATERAL (LOGO ARRIBA A LA IZQUIERDA) ---
     with st.sidebar:
-        st.header("Menú de Opciones")
+        # El logo es lo primero que se carga para que esté arriba del todo
+        if os.path.exists("logo.png"):
+            st.image("logo.png", width=150) # Tamaño reducido para la esquina
+            st.divider()
+        
+        # Botones de control
         if st.button("Cerrar Sesión"):
             st.session_state["password_correct"] = False
             st.rerun()
+        
         st.divider()
-        st.warning("Mantenimiento")
+        st.caption("⚙️ Mantenimiento")
         if st.button("Vaciar Memoria (Reset)"):
             if os.path.exists(ARCHIVO_HISTORIAL):
                 os.remove(ARCHIVO_HISTORIAL)
                 st.rerun()
 
+    # --- 6. CUERPO PRINCIPAL ---
     st.title("Radar de Licitaciones 🏢")
     
     tab1, tab2 = st.tabs(["🔍 Buscar Nuevas", "📁 Archivo e Informes"])
@@ -150,13 +142,11 @@ if check_password():
                     coin = sorted(list(set([kw.upper() for kw in KEYWORDS if normalizar_texto(kw) in texto_comp])))
                     
                     if coin:
-                        # Extracción de Organismo
                         organismo = "No detectado"
                         m_org = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", resumen_raw, re.I | re.S)
                         if m_org: organismo = m_org.group(1).strip()
                         elif entrada.get('author'): organismo = entrada.author
 
-                        # Fecha
                         try: fecha_pub = datetime(*entrada.published_parsed[:3]).strftime("%d/%m/%Y")
                         except: fecha_pub = datetime.now().strftime("%d/%m/%Y")
 
@@ -173,7 +163,6 @@ if check_password():
             if nuevas > 0:
                 st.success(f"¡Se han detectado {nuevas} oportunidades nuevas!")
                 df_nuevas = pd.DataFrame(historial[-nuevas:])
-                # Garantizar que las columnas existan antes de mostrar
                 for c in columnas_ver:
                     if c not in df_nuevas.columns: df_nuevas[c] = "N/A"
                 
@@ -184,19 +173,16 @@ if check_password():
                     use_container_width=True
                 )
             else:
-                st.info("No hay novedades interesantes desde la última búsqueda.")
+                st.info("No hay novedades interesantes.")
 
     with tab2:
         historial = cargar_y_limpiar_historial()
         if historial:
             df_hist = pd.DataFrame(list(reversed(historial)))
-            
-            # Asegurar consistencia de columnas
             for c in columnas_ver:
                 if c not in df_hist.columns: df_hist[c] = "N/A"
             
-            # Buscador en historial
-            busqueda = st.text_input("Buscar en el historial (Organismo o Título):")
+            busqueda = st.text_input("Buscar en el historial:")
             if busqueda:
                 df_hist = df_hist[df_hist.apply(lambda row: busqueda.lower() in row.astype(str).str.lower().str.cat(), axis=1)]
 
@@ -207,7 +193,6 @@ if check_password():
                 use_container_width=True
             )
             
-            # Exportación a Excel
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df_hist[columnas_ver].to_excel(writer, index=False, sheet_name='Licitaciones')
@@ -219,4 +204,4 @@ if check_password():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
         else:
-            st.info("El historial está vacío. Realiza una búsqueda para llenarlo.")
+            st.info("El historial está vacío.")
