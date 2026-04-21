@@ -15,14 +15,14 @@ from xhtml2pdf import pisa
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="📡", layout="wide")
 
 # ==============================================================================
-# --- 2. CSS AVANZADO (DISEÑO CORPORATIVO Y POSICIONAMIENTO DE LOGO) ---
+# --- 2. CSS AVANZADO (DISEÑO CORPORATIVO Y POSICIONAMIENTO EXTREMO) ---
 # ==============================================================================
 st.markdown(
     """
     <style>
         :root { --coral-red: #FF4B4B; --anerpro-blue: #002C5F; }
         
-        /* Ocultar navegación nativa */
+        /* Ocultar navegación nativa de Streamlit */
         [data-testid="stSidebarNav"] { display: none !important; }
         
         /* Subir la cabecera del cuerpo principal */
@@ -30,7 +30,7 @@ st.markdown(
             padding-top: 3rem !important; 
         }
 
-        /* Cabecera con Antena */
+        /* Estilo de Cabecera con Antena */
         .radar-header {
             display: flex;
             align-items: center;
@@ -58,30 +58,56 @@ st.markdown(
             border-radius: 8px !important;
         }
 
-        /* --- AJUSTE LOGO SIDEBAR --- */
+        /* --- AJUSTE RADICAL LOGO SIDEBAR --- */
         [data-testid="stSidebar"] {
             background-color: #fcfcfc;
         }
         
-        /* Forzamos que el contenido del sidebar suba al máximo */
-        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        /* Eliminamos el padding superior nativo de la barra lateral */
+        [data-testid="stSidebarContent"] {
             padding-top: 0rem !important;
-            margin-top: -20px !important;
         }
 
-        /* Estilo para que el logo se vea arriba a la izquierda */
+        /* Forzamos que el primer bloque de contenido suba al máximo */
+        [data-testid="stSidebarContent"] > div:first-child {
+            padding-top: 10px !important;
+        }
+
+        /* Contenedor del logo: lo subimos y lo pegamos a la izquierda */
         .logo-container-sidebar {
-            margin-top: -30px !important;
-            margin-bottom: 20px !important;
+            margin-top: -35px !important; /* Sube por encima del margen estándar */
+            margin-left: -15px !important; /* Pega a la izquierda */
+            margin-bottom: 15px !important;
             text-align: left !important;
         }
+
+        /* --- CORRECCIÓN LUPA Y MENÚ --- */
+        /* Aseguramos que los labels del radio no corten los iconos */
+        [data-testid="stSidebar"] [data-testid="stRadio"] label {
+            overflow: visible !important;
+            padding-left: 5px !important;
+            min-height: 30px !important;
+            display: flex !important;
+            align-items: center !important;
+        }
         
-        /* Estilo del desplegable Menu */
+        [data-testid="stSidebar"] [data-testid="stRadio"] label p {
+            font-size: 1.05rem !important;
+            margin-bottom: 0 !important;
+        }
+
+        /* Estilo del expander "Menu" para que sea profesional */
         .st-expanderHeader {
             font-weight: bold !important;
             color: #31333F !important;
-            border: 1px solid #eee !important;
-            border-radius: 5px !important;
+            border: 1px solid #f0f2f6 !important;
+            border-radius: 8px !important;
+            background-color: white !important;
+        }
+        
+        .st-expanderContent {
+            border: none !important;
+            padding-top: 10px !important;
         }
     </style>
     """,
@@ -122,7 +148,7 @@ def check_password():
     
     with col2:
         if os.path.exists("logo.png"):
-            # Centrado exacto del logo para el login
+            # Centrado para el login
             _, mid_logo, _ = st.columns([0.5, 2, 0.5])
             with mid_logo:
                 st.image("logo.png", use_container_width=True)
@@ -145,7 +171,7 @@ if check_password():
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     KEYWORDS = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
 
-    # --- 5. FUNCIONES DE EXTRACCIÓN (BASADAS EN CÓDIGO ANTIGUO) ---
+    # --- 5. FUNCIONES DE EXTRACCIÓN MEJORADAS ---
     def normalizar(t): return ''.join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn') if t else ""
     
     def formatear_moneda(v):
@@ -190,15 +216,15 @@ if check_password():
 
     # --- 6. BARRA LATERAL (LOGO ARRIBA A LA IZQUIERDA Y MENU DESPLEGABLE) ---
     with st.sidebar:
-        # Contenedor del logo con CSS para subirlo al máximo
+        # Contenedor del logo forzado arriba a la izquierda
         st.markdown('<div class="logo-container-sidebar">', unsafe_allow_html=True)
         if os.path.exists("logo.png"): 
-            st.image("logo.png", width=130)
+            st.image("logo.png", width=125)
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.write("---")
         
-        # El "Menu" es un expander para ocultar opciones inicialmente como solicitaste
+        # El "Menu" es un expander (tecla desplegable) que oculta las opciones
         with st.expander("Menu", expanded=False):
             opcion = st.radio(
                 "Navegación:",
@@ -206,7 +232,7 @@ if check_password():
                 label_visibility="collapsed"
             )
         
-        st.markdown("<div style='height: 45vh;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 40vh;'></div>", unsafe_allow_html=True)
         if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state["password_correct"] = False
             st.rerun()
