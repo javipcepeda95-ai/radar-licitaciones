@@ -28,7 +28,15 @@ if check_password():
     URL_FEED = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     DIAS_RETENCION = 5
-    KEYWORDS = ["energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
+    
+    # --- TU LISTA DE PALABRAS CLAVE SELECCIONADA ---
+    KEYWORDS = [
+        "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", 
+        "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", 
+        "industria 4.0", "scada", "certificado", "autoconsumo", "plc", 
+        "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", 
+        "digitalizacion industrial", "gemelo digital", "auditoria energetica"
+    ]
 
     def normalizar_texto(texto):
         if not texto: return ""
@@ -40,15 +48,14 @@ if check_password():
                 try: datos = json.load(f)
                 except: return []
             fecha_limite = datetime.now() - timedelta(days=DIAS_RETENCION)
-            # Limpieza y formateo preventivo
             datos_limpios = []
             for item in datos:
                 try:
                     fecha_str = item.get("Detectado el") or item.get("Detectado")
                     fecha_item = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M:%S") if "-" in fecha_str else datetime.strptime(fecha_str, "%d/%m/%Y %H:%M")
                     if fecha_item >= fecha_limite:
-                        # Asegurar que tenga la columna Publicado para que no de error
                         if "Publicado" not in item: item["Publicado"] = "Anterior"
+                        if "Organismo" not in item: item["Organismo"] = "N/A"
                         datos_limpios.append(item)
                 except: pass
             return datos_limpios
@@ -85,24 +92,32 @@ if check_password():
                     if coincidencias:
                         try: fecha_pub = datetime(*entrada.published_parsed[:3]).strftime("%d/%m/%Y")
                         except: fecha_pub = datetime.now().strftime("%d/%m/%Y")
-                        ofertas_encontradas.append({"Publicado": fecha_pub, "Título": entrada.title, "Palabras Detectadas": ", ".join(coincidencias), "Enlace Oficial": entrada.link})
+                        organismo = entrada.author if 'author' in entrada else "Desconocido"
+
+                        ofertas_encontradas.append({
+                            "Publicado": fecha_pub, 
+                            "Organismo": organismo,
+                            "Título": entrada.title, 
+                            "Palabras Detectadas": ", ".join(list(set(coincidencias))), # set para no repetir si coinciden con/sin tilde
+                            "Enlace Oficial": entrada.link
+                        })
 
             historial, nuevas = guardar_en_historial(ofertas_encontradas)
             if nuevas > 0:
                 st.success(f"¡Detectadas {nuevas} nuevas!")
                 df_nuevas = pd.DataFrame(historial[-nuevas:])
-                st.dataframe(df_nuevas[["Publicado", "Título", "Palabras Detectadas", "Enlace Oficial"]], 
+                columnas = ["Publicado", "Organismo", "Título", "Palabras Detectadas", "Enlace Oficial"]
+                st.dataframe(df_nuevas[columnas], 
                              column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, 
                              hide_index=True, use_container_width=True)
             else:
-                st.info("No hay novedades.")
+                st.info("Sin novedades interesantes.")
 
     with tab2:
         historial = cargar_y_limpiar_historial()
         if historial:
             df_historial = pd.DataFrame(list(reversed(historial)))
-            # Forzamos solo las columnas que queremos ver y en ese orden
-            columnas_ver = ["Publicado", "Título", "Palabras Detectadas", "Enlace Oficial"]
+            columnas_ver = ["Publicado", "Organismo", "Título", "Palabras Detectadas", "Enlace Oficial"]
             st.dataframe(df_historial[columnas_ver], 
                          column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, 
                          hide_index=True, use_container_width=True)
