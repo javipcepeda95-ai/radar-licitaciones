@@ -73,7 +73,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- 3. SISTEMA DE SEGURIDAD (Login) ---
+# --- 3. SISTEMA DE SEGURIDAD (Login PANTALLA CENTRADA) ---
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
@@ -136,19 +136,28 @@ if check_password():
             if m: return formatear_moneda(m.group(1).strip())
         return "Ver en PDF"
 
-    # ESCÁNER DE FECHAS ARREGLADO (Más tolerante con el formato del Estado)
-    def extraer_fecha_cierre(texto):
-        if not texto: return "No indicada"
-        texto_limpio = re.sub(r'<[^>]*>', ' ', texto)
-        # Hemos quitado la obligación de buscar ":" para que atrape la fecha siempre
-        patrones = [
-            r"Fin de plazo de presentación de oferta[s]?[^\d]*(\d{2}/\d{2}/\d{4})",
-            r"Plazo de presentación[^\d]*(\d{2}/\d{2}/\d{4})",
-            r"Fecha límite de presentación[^\d]*(\d{2}/\d{2}/\d{4})"
-        ]
-        for p in patrones:
-            match = re.search(p, texto_limpio, re.IGNORECASE)
-            if match: return match.group(1)
+    # NUEVO ESCÁNER PROFUNDO DE FECHAS
+    def extraer_fecha_cierre(e, texto):
+        # 1. Búsqueda profunda en los metadatos ocultos del XML (feedparser dict)
+        # El Gobierno esconde la fecha en la etiqueta "TenderSubmissionDeadlinePeriod"
+        raw_dict_str = str(e).lower()
+        match_xml = re.search(r"tendersubmissiondeadlineperiod.{0,150}?enddate['\"]?:\s*['\"](\d{4}-\d{2}-\d{2})['\"]", raw_dict_str)
+        if match_xml:
+            try: return datetime.strptime(match_xml.group(1), "%Y-%m-%d").strftime("%d/%m/%Y")
+            except: pass
+            
+        # 2. Respaldo: Búsqueda en el texto visible por si acaso
+        if texto:
+            texto_l = re.sub(r'<[^>]*>', ' ', texto).lower()
+            patrones = [
+                r"presentación[^\d]*(\d{2}/\d{2}/\d{4})",
+                r"plazo[^\d]*(\d{2}/\d{2}/\d{4})",
+                r"límite[^\d]*(\d{2}/\d{2}/\d{4})"
+            ]
+            for p in patrones:
+                m = re.search(p, texto_l)
+                if m: return m.group(1)
+                
         return "No indicada"
 
     def cargar_y_limpiar_historial():
@@ -237,8 +246,8 @@ if check_password():
                     coin = sorted(list(set([k.upper() for k in KEYWORDS if normalizar(k) in txt])))
                     
                     if coin:
-                        # Extraemos la fecha límite
-                        fecha_cierre_str = extraer_fecha_cierre(res)
+                        # Extraemos la fecha límite enviando TODO el objeto (e) para escaneo profundo
+                        fecha_cierre_str = extraer_fecha_cierre(e, res)
                         es_valida = True
                         
                         # Comprobamos si está caducada
