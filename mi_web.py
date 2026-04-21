@@ -25,12 +25,12 @@ st.markdown(
         /* Ajustar el logo arriba */
         [data-testid="stSidebar"] img {
             margin-top: -30px !important;
+            margin-bottom: 10px !important;
         }
 
-        /* --- AJUSTAR EL CONTENIDO PRINCIPAL --- */
-        /* Le damos un poco más de aire (4rem) para que no quede pegado al techo */
+        /* Subir el contenido principal quitando el margen gigante por defecto */
         .block-container {
-            padding-top: 4rem !important; 
+            padding-top: 2rem !important; 
         }
 
         /* --- ESTILOS DE CABECERA --- */
@@ -38,7 +38,9 @@ st.markdown(
             display: flex;
             align-items: center;
             gap: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
         }
         .radar-header h1 {
             font-size: 2.8rem;
@@ -47,18 +49,8 @@ st.markdown(
             margin: 0;
             padding: 0;
         }
-        
-        /* Pestañas (Pinta la primera de rojo) */
-        button[data-baseweb="tab"]:nth-child(1) p {
-            color: var(--coral-red) !important;
-            font-weight: 600 !important;
-            font-size: 1.1rem;
-        }
-        button[data-baseweb="tab"]:nth-child(2) p {
-            font-size: 1.1rem;
-        }
 
-        /* Botón rojo corporativo */
+        /* Botón rojo corporativo (Actualizar) */
         .stButton button[kind="primary"] {
             background-color: var(--coral-red) !important;
             color: white !important;
@@ -68,6 +60,11 @@ st.markdown(
         }
         .stButton button[kind="primary"]:hover {
             background-color: #e34343 !important;
+        }
+        
+        /* Botones de acción en tablas (Descargar / Reset) */
+        .action-buttons .stButton button {
+            font-weight: 600 !important;
         }
     </style>
     """,
@@ -149,33 +146,35 @@ if check_password():
             with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4, ensure_ascii=False)
         return hist, añadidas
 
-    # --- 6. BARRA LATERAL (ESTRUCTURA SEGURA) ---
+    # --- 6. BARRA LATERAL (NUEVA NAVEGACIÓN) ---
     with st.sidebar:
-        # Logo arriba de todo
+        # Logo
         if os.path.exists("logo.png"): st.image("logo.png", width=140)
         
         st.divider()
         
-        # Mantenimiento
-        st.caption("⚙️ Mantenimiento")
-        if st.button("Vaciar Memoria (Reset)", use_container_width=True):
-            if os.path.exists(ARCHIVO_HISTORIAL): os.remove(ARCHIVO_HISTORIAL)
-            st.rerun()
+        # Pestaña desplegable de navegación
+        with st.expander("📡 Radar de Licitaciones", expanded=True):
+            opcion_navegacion = st.radio(
+                "Menú", 
+                ["🔍 Búsqueda de Licitaciones", "📁 Archivos e Informes"],
+                label_visibility="collapsed"
+            )
             
-        # ESPACIADOR INVISIBLE
-        st.markdown("<div style='height: 65vh;'></div>", unsafe_allow_html=True)
+        # ESPACIADOR INVISIBLE para empujar el botón de Cerrar Sesión al fondo
+        st.markdown("<div style='height: 55vh;'></div>", unsafe_allow_html=True)
         
-        # Cerrar Sesión
+        # Cerrar Sesión (Se mantiene abajo del todo)
         if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state["password_correct"] = False
             st.rerun()
 
     # --- 7. CUERPO PRINCIPAL ---
-    # Icono de Radar de Pantalla (Scope)
+    # Icono de Radar de Pantalla
     st.markdown(
         """
         <div class="radar-header">
-            <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#31333F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="#31333F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10" stroke-width="1.5"></circle>
                 <circle cx="12" cy="12" r="6" stroke-width="1" stroke-dasharray="2 2"></circle>
                 <line x1="12" y1="2" x2="12" y2="22" stroke-width="1" opacity="0.3"></line>
@@ -188,11 +187,15 @@ if check_password():
         """, unsafe_allow_html=True
     )
 
-    tab1, tab2 = st.tabs(["🔍 Buscar Nuevas", "📁 Archivo e Informes"])
     columnas_ver = ["Publicado", "Organismo", "Título", "Presupuesto", "Palabras Detectadas", "Enlace Oficial"]
 
-    with tab1:
-        st.write("") 
+    # --- LÓGICA DE VISTAS BASADA EN EL MENÚ LATERAL ---
+    
+    # VISTA 1: BÚSQUEDA
+    if opcion_navegacion == "🔍 Búsqueda de Licitaciones":
+        st.subheader("Búsqueda en Tiempo Real")
+        st.write("Pulsa el botón para escanear las últimas publicaciones de la Plataforma de Contratación del Estado.")
+        
         if st.button("Actualizar y Buscar Ahora", type="primary"):
             with st.spinner('Escaneando plataforma del Estado...'):
                 feed = feedparser.parse(URL_FEED)
@@ -217,19 +220,40 @@ if check_password():
                 for c in columnas_ver:
                     if c not in df.columns: df[c] = "N/A"
                 st.dataframe(df[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
-            else: st.info("No hay novedades interesantes en este momento.")
+            else: st.info("No hay novedades interesantes en este momento. Inténtalo más tarde.")
 
-    with tab2:
+    # VISTA 2: ARCHIVOS E INFORMES
+    elif opcion_navegacion == "📁 Archivos e Informes":
+        st.subheader("Base de Datos e Informes")
         hist = cargar_y_limpiar_historial()
+        
         if hist:
             df_hist = pd.DataFrame(list(reversed(hist)))
             for c in columnas_ver:
                 if c not in df_hist.columns: df_hist[c] = "N/A"
+                
             busq = st.text_input("Buscar por Organismo o Título:")
             if busq: df_hist = df_hist[df_hist.apply(lambda r: busq.lower() in r.astype(str).str.lower().str.cat(), axis=1)]
+            
             st.dataframe(df_hist[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer: df_hist[columnas_ver].to_excel(writer, index=False, sheet_name='Licitaciones')
-            st.download_button(label="📥 Descargar Excel", data=buffer.getvalue(), file_name="informe_licitaciones.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        else: st.info("El historial está vacío. Realiza una búsqueda en la otra pestaña.")
+            st.write("---") # Línea separadora
+            
+            # BOTONES JUNTOS AL FINAL DE LA PÁGINA
+            st.markdown('<div class="action-buttons">', unsafe_allow_html=True)
+            col1, col2, col3 = st.columns([2, 2, 4]) # El col3 vacío empuja los botones a la izquierda
+            
+            with col1:
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer: df_hist[columnas_ver].to_excel(writer, index=False, sheet_name='Licitaciones')
+                st.download_button(label="📥 Descargar Excel", data=buffer.getvalue(), file_name="informe_licitaciones.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            
+            with col2:
+                # El botón de reset ahora vive aquí
+                if st.button("🗑️ Vaciar Memoria (Reset)", use_container_width=True):
+                    if os.path.exists(ARCHIVO_HISTORIAL): os.remove(ARCHIVO_HISTORIAL)
+                    st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        else: 
+            st.info("El historial está vacío. Ve a la sección 'Búsqueda de Licitaciones' para escanear.")
