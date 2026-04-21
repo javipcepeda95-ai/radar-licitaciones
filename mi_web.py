@@ -22,15 +22,15 @@ st.markdown(
         /* Ocultar barra superior vacía de Streamlit */
         [data-testid="stSidebarNav"] { display: none !important; }
         
-        /* Subir el logo suavemente */
+        /* Ajustar el logo arriba */
         [data-testid="stSidebar"] img {
             margin-top: -30px !important;
         }
 
-        /* --- SUBIR EL CONTENIDO PRINCIPAL --- */
-        /* Eliminamos el enorme margen blanco que Streamlit deja por defecto arriba */
+        /* --- AJUSTAR EL CONTENIDO PRINCIPAL --- */
+        /* Le damos un poco más de aire (4rem) para que no quede pegado al techo */
         .block-container {
-            padding-top: 2rem !important;
+            padding-top: 4rem !important; 
         }
 
         /* --- ESTILOS DE CABECERA --- */
@@ -162,7 +162,7 @@ if check_password():
             if os.path.exists(ARCHIVO_HISTORIAL): os.remove(ARCHIVO_HISTORIAL)
             st.rerun()
             
-        # ESPACIADOR INVISIBLE: Aumentado a 65vh para empujar el botón más abajo
+        # ESPACIADOR INVISIBLE
         st.markdown("<div style='height: 65vh;'></div>", unsafe_allow_html=True)
         
         # Cerrar Sesión
