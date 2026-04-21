@@ -2,6 +2,5 @@ streamlit
 feedparser
 pandas
 openpyxl
-google-generativeai
+google-genai
 xhtml2pdf
-reportlab
