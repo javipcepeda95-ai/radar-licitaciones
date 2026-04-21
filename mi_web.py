@@ -15,17 +15,17 @@ from xhtml2pdf import pisa
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="📡", layout="wide")
 
 # ==============================================================================
-# --- 2. CSS AVANZADO (CORRECCIONES VISUALES) ---
+# --- 2. CSS AVANZADO (CORRECCIONES VISUALES Y DISEÑO CORPORATIVO) ---
 # ==============================================================================
 st.markdown(
     """
     <style>
         :root { --coral-red: #FF4B4B; --anerpro-blue: #002C5F; }
         
-        /* Ocultar navegación nativa */
+        /* Ocultar navegación nativa de Streamlit */
         [data-testid="stSidebarNav"] { display: none !important; }
         
-        /* Ajuste margen superior para que no se corte la cabecera */
+        /* Ajuste de margen superior para evitar que la cabecera salga cortada */
         .block-container {
             padding-top: 6rem !important; 
         }
@@ -48,30 +48,26 @@ st.markdown(
             line-height: 1.1;
         }
 
-        /* Botones Anerpro */
+        /* Botones Anerpro (Rojos) */
         .stButton button[kind="primary"], [data-testid="stFormSubmitButton"] button {
             background-color: var(--coral-red) !important;
             color: white !important;
             border: none !important;
-            border-radius: 6px !important;
-            padding: 0.5rem 2rem !important;
+            padding: 0.6rem 2rem !important;
             font-weight: 600 !important;
+            border-radius: 8px !important;
         }
         
         /* Sidebar Logo Position */
         [data-testid="stSidebar"] {
             background-color: #fcfcfc;
         }
-        
-        /* Eliminar el índice de las tablas */
-        .stDataFrame [data-testid="stTable"] thead th:first-child { display: none; }
-        .stDataFrame [data-testid="stTable"] tbody td:first-child { display: none; }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# --- ICONO SVG DE LA ANTENA ---
+# --- ICONO SVG DE LA ANTENA (Reutilizable) ---
 def mostrar_cabecera(titulo):
     st.markdown(
         f"""
@@ -79,7 +75,7 @@ def mostrar_cabecera(titulo):
             <svg width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="#31333F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10" stroke-width="1" opacity="0.2"></circle>
                 <line x1="12" y1="12" x2="19" y2="5" stroke="#FF4B4B" stroke-width="2.5"></line>
-                <circle cx="12" cy="12" r="2" fill="#FF4B4B" stroke="#FF4B4B"></circle>
+                <circle cx="12" cy="12" r="2.5" fill="#FF4B4B" stroke="#FF4B4B"></circle>
                 <path d="M12 2a10 10 0 0 1 10 10" opacity="0.4" stroke="#FF4B4B"></path>
             </svg>
             <div class="radar-title">{titulo}</div>
@@ -87,11 +83,11 @@ def mostrar_cabecera(titulo):
         """, unsafe_allow_html=True
     )
 
-# --- PROMPT MAESTRO (Original de analistaG.py) ---
+# --- PROMPT MAESTRO ---
 PROMPT_MAESTRO = """
 Actúa como un Analista Experto en Contratación Pública. Contexto: ANERPRO es empresa EPCista (ciclo del agua, MT/BT, biogás, automatización). ROLECE: I-5-2; I-6-3; I-8-1; I-9-3; J-2-3; J-3-2; J-4-3; J-5-4; K-9-1; O-4-1; P-1-1; P-2-3; P-3-3; P-5-1; Q-1-3.
 
-ANALIZA los pliegos adjuntos y DEVUELVE ÚNICA Y EXCLUSIVAMENTE UN OBJETO JSON VÁLIDO con la estructura solicitada (sin texto extra):
+ANALIZA los pliegos adjuntos y DEVUELVE ÚNICA Y EXCLUSIVAMENTE UN OBJETO JSON VÁLIDO con la estructura solicitada:
 {
   "titulo_oferta": "...",
   "datos_initiales": [{"concepto": "Ubicación", "detalle": "..."}, {"concepto": "Presupuesto", "detalle": "..."}],
@@ -100,7 +96,7 @@ ANALIZA los pliegos adjuntos y DEVUELVE ÚNICA Y EXCLUSIVAMENTE UN OBJETO JSON V
 }
 """
 
-# --- 3. SISTEMA DE SEGURIDAD (LOGO CENTRADO) ---
+# --- 3. SISTEMA DE SEGURIDAD (LOGO CENTRADO Y TÍTULO NUEVO) ---
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
@@ -138,32 +134,33 @@ if check_password():
     # --- 5. FUNCIONES DE EXTRACCIÓN (INSPIRADAS EN EL CÓDIGO ANTIGUO) ---
     def normalizar(t): return ''.join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn') if t else ""
     
+    def formatear_moneda(v):
+        if not v or "PDF" in str(v): return v
+        try:
+            l = "".join(c for c in str(v) if c.isdigit() or c in ".,")
+            if "." in l and "," in l: l = l.replace(".", "").replace(",", ".")
+            elif "," in l: l = l.replace(",", ".")
+            return f"{float(l):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + " €"
+        except: return v
+
     def extraer_organismo(e, res):
-        # 1. Intentar por el autor oficial
-        if e.get('author') and e.author != "N/A": return e.author
-        # 2. Búsqueda por regex en el resumen (inspirado en el antiguo)
+        org = "No detectado"
+        # Lógica del código antiguo: regex en el resumen
         m = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", res, re.I | re.S)
-        if m: return re.sub(r'<[^>]*>', '', m.group(1).strip())
-        # 3. Al final del título entre paréntesis
-        m_tit = re.search(r"\(([^)]+)\)$", e.title)
-        if m_tit: return m_tit.group(1).strip()
-        return "No detectado"
+        if m: 
+            org = re.sub(r'<[^>]*>', '', m.group(1).strip())
+        elif e.get('author'): 
+            org = e.author
+        return org
 
     def extraer_presupuesto(res):
-        if not res: return "Ver PDF"
-        # Limpieza de HTML para facilitar el regex
+        if not res: return "Ver en PDF"
         t = re.sub(r'<[^>]*>', ' ', res)
         # Regex robusto del código antiguo
-        patrones = [
-            r"(?:Importe|Valor estimado):\s*([\d\.]+(?:,\d{1,2})?)",
-            r"([\d\.]+(?:\d{3})?,\d{2})\s*(?:EUR|€)"
-        ]
-        for p in patrones:
+        for p in [r"(?:Importe|Valor estimado):\s*([\d\.]+(?:,\d{1,2})?)", r"([\d\.]+(?:\d{3})?,\d{2})\s*(?:EUR|€)"]:
             m = re.search(p, t, re.I)
-            if m: 
-                val = m.group(1).strip()
-                return f"{val} €" if "€" not in val else val
-        return "Ver PDF"
+            if m: return formatear_moneda(m.group(1).strip())
+        return "Ver en PDF"
 
     def extraer_fecha_cierre(e, texto):
         raw = str(e).lower()
@@ -186,7 +183,7 @@ if check_password():
             st.image("logo.png", width=140)
         st.write("---")
         
-        # El título del desplegable solicitado
+        # MENÚ DESPLEGABLE solicitado
         opcion = st.selectbox(
             "Menu", 
             ["🔍 Búsqueda Licitaciones", "📁 Archivo e Informes", "📄 Generación de Informes"]
@@ -197,12 +194,12 @@ if check_password():
             st.session_state["password_correct"] = False
             st.rerun()
 
-    # Configuración de tabla (PDF clickable, sin índice)
+    # Configuración maestra para las tablas
     config_tabla = {
         "Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace"),
         "Publicado": st.column_config.TextColumn("Publicado", width="small"),
         "Fin Plazo": st.column_config.TextColumn("Fin Plazo", width="small"),
-        "Presupuesto": st.column_config.TextColumn("Importe", width="medium"),
+        "Importe": st.column_config.TextColumn("Importe", width="medium"),
         "Organismo": st.column_config.TextColumn("Organismo", width="large")
     }
 
@@ -230,7 +227,7 @@ if check_password():
                             "Publicado": datetime.now().strftime("%d/%m/%Y"),
                             "Organismo": extraer_organismo(e, res),
                             "Título": e.title,
-                            "Presupuesto": extraer_presupuesto(res),
+                            "Importe": extraer_presupuesto(res),
                             "Fin Plazo": f_cierre,
                             "Palabras Detectadas": ", ".join(coin),
                             "Enlace Oficial": e.link
@@ -248,7 +245,7 @@ if check_password():
                 else: 
                     st.info("No hay nuevas ofertas.")
 
-    # --- VISTA 2: ARCHIVO (BOTONES JUNTOS) ---
+    # --- VISTA 2: ARCHIVO ---
     elif "Archivo" in opcion:
         mostrar_cabecera("Historial de Licitaciones")
         hist = cargar_historial()
@@ -260,13 +257,13 @@ if check_password():
             
             st.dataframe(df, column_config=config_tabla, hide_index=True, use_container_width=True)
             
-            # Botones pegados a la izquierda
-            c1, c2, c3 = st.columns([1.5, 1.5, 5])
-            with c1:
+            # Botones alineados a la izquierda
+            col1, col2, col3 = st.columns([1.5, 1.5, 5])
+            with col1:
                 buffer = io.BytesIO()
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer: df.to_excel(writer, index=False)
                 st.download_button("📥 Descargar Excel", data=buffer.getvalue(), file_name="Radar_Anerpro.xlsx", use_container_width=True)
-            with c2:
+            with col2:
                 if st.button("🗑️ Reset Historial", use_container_width=True):
                     if os.path.exists(ARCHIVO_HISTORIAL): os.remove(ARCHIVO_HISTORIAL)
                     st.rerun()
@@ -296,7 +293,7 @@ if check_password():
                     
                     datos = json.loads(response.text.strip().replace("```json", "").replace("```", ""))
                     
-                    # MAQUETACIÓN PREMIUM analistaG
+                    # MAQUETACIÓN PREMIUM
                     html_filas = "".join([f"<tr><td><strong>{f['concepto']}</strong></td><td>{f['detalle']}</td></tr>" for f in datos.get('datos_initiales', [])])
                     ruta_logo = os.path.abspath("logo.png")
                     logo_tag = f'<img src="{ruta_logo}" height="25" />' if os.path.exists(ruta_logo) else ''
@@ -310,7 +307,7 @@ if check_password():
                                @frame footer_frame {{ -pdf-frame-content: fc; bottom: 1cm; height: 1cm; }} }}
                         body {{ font-family: Helvetica, sans-serif; font-size: 11pt; color: #333; }}
                         #hc {{ text-align: right; }} #fc {{ text-align: right; font-size: 9pt; color: #888; }}
-                        .tit {{ text-align: center; color: #002C5F; font-size: 16pt; font-weight: bold; border-bottom: 2px solid #002C5F; padding-bottom: 5px; text-transform: uppercase; }}
+                        .tit {{ text-align: center; color: #002C5F; font-size: 16pt; font-weight: bold; border-bottom: 2.5px solid #002C5F; padding-bottom: 5px; text-transform: uppercase; }}
                         .sec {{ background-color: #F0F4F8; color: #002C5F; padding: 5px 10px; font-weight: bold; border-left: 4px solid #002C5F; margin-top: 15px; }}
                         table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
                         th {{ background-color: #002C5F; color: white; padding: 8px; text-align: left; }}
@@ -335,6 +332,6 @@ if check_password():
                     """
                     pdf_buf = io.BytesIO()
                     pisa.CreatePDF(html_final, dest=pdf_buf)
-                    st.success("✅ Informe generado.")
+                    st.success("✅ Informe generado correctamente.")
                     st.download_button("📥 Descargar Informe Anerpro", data=pdf_buf.getvalue(), file_name=f"Analisis_{datetime.now().strftime('%Y%m%d')}.pdf", mime="application/pdf")
                 except Exception as e: st.error(f"Error en el proceso: {e}")
