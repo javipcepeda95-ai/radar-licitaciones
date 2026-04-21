@@ -7,6 +7,9 @@ import json
 import os
 import re
 import io
+import tempfile
+from google import genai
+from xhtml2pdf import pisa
 
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="📡", layout="wide")
@@ -73,7 +76,33 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- 3. SISTEMA DE SEGURIDAD (Login PANTALLA CENTRADA) ---
+# --- PROMPT MAESTRO PARA GEMINI ---
+PROMPT_MAESTRO = """
+Actúa como un Analista Experto en Contratación Pública. Contexto: ANERPRO es empresa EPCista (ciclo del agua, MT/BT, biogás, automatización). ROLECE: I-5-2; I-6-3; I-8-1; I-9-3; J-2-3; J-3-2; J-4-3; J-5-4; K-9-1; O-4-1; P-1-1; P-2-3; P-3-3; P-5-1; Q-1-3.
+
+ANALIZA los pliegos adjuntos y DEVUELVE ÚNICA Y EXCLUSIVAMENTE UN OBJETO JSON VÁLIDO con la siguiente estructura (sin texto extra):
+
+{
+  "titulo_oferta": "Nombre exacto del proyecto",
+  "datos_iniciales": [
+    {"concepto": "Ubicación", "detalle": "Localidad y provincia"},
+    {"concepto": "Expediente", "detalle": "Entidad y número"},
+    {"concepto": "Visita", "detalle": "¿Obligatoria? Fecha y lugar"},
+    {"concepto": "Plazos", "detalle": "Ejecución"},
+    {"concepto": "Presupuesto", "detalle": "Importe sin IVA"},
+    {"concepto": "Solvencia", "detalle": "¿Cumplimos ROLECE? Si no, solvencia alternativa"},
+    {"concepto": "Medios", "detalle": "Personal y material mínimo"},
+    {"concepto": "Adjudicación", "detalle": "Criterios en %"}
+  ],
+  "alcance": ["Punto clave 1", "Punto clave 2", "Punto clave 3..."],
+  "pros": ["Ventaja 1", "Ventaja 2..."],
+  "contras": ["Riesgo o penalización 1", "Riesgo 2..."],
+  "valoracion_puntuacion": "Nota/10",
+  "valoracion_texto": "Justificación ejecutiva."
+}
+"""
+
+# --- 3. SISTEMA DE SEGURIDAD (Login) ---
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
@@ -114,8 +143,6 @@ if check_password():
     URL_FEED = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     DIAS_RETENCION = 5
-    
-    # LISTA DE PALABRAS CLAVE ACTUALIZADA (Corregidas las comillas)
     KEYWORDS = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
 
     # --- 5. FUNCIONES ---
@@ -138,35 +165,27 @@ if check_password():
             if m: return formatear_moneda(m.group(1).strip())
         return "Ver en PDF"
 
-    # ESCÁNER DE FECHAS DEFINITIVO
     def extraer_fecha_cierre(e, texto):
         try:
-            # 1. Búsqueda en el XML crudo (Etiquetas ocultas del Estado)
             raw = str(e).lower()
             m1 = re.search(r"['\"]?(?:cbc_)?enddate['\"]?\s*:\s*['\"](\d{4}-\d{2}-\d{2})", raw)
             if m1: 
                 return datetime.strptime(m1.group(1), "%Y-%m-%d").strftime("%d/%m/%Y")
         except: pass
-        
-        # 2. Búsqueda salvaje en el texto/HTML
         if texto:
             try:
-                # Buscamos en el HTML ignorando etiquetas que rompen la frase
                 m_html = re.search(r"(?:plazo|presentaci.n|l.mite|hasta).*?(?:>|:|\s)(?:&nbsp;|\s)*(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})", texto, re.IGNORECASE | re.DOTALL)
                 if m_html: 
-                    fecha_encontrada = m_html.group(1)
-                    if "-" in fecha_encontrada: return datetime.strptime(fecha_encontrada, "%Y-%m-%d").strftime("%d/%m/%Y")
-                    return fecha_encontrada
-                    
-                # Si falla, quitamos el HTML y buscamos a fuerza bruta
+                    f_enc = m_html.group(1)
+                    if "-" in f_enc: return datetime.strptime(f_enc, "%Y-%m-%d").strftime("%d/%m/%Y")
+                    return f_enc
                 t_limpio = re.sub(r'<[^>]*>', ' ', texto).lower()
                 m_txt = re.search(r"(?:plazo|presentaci.n|l.mite|hasta).{0,60}?(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})", t_limpio)
                 if m_txt: 
-                    fecha_encontrada = m_txt.group(1)
-                    if "-" in fecha_encontrada: return datetime.strptime(fecha_encontrada, "%Y-%m-%d").strftime("%d/%m/%Y")
-                    return fecha_encontrada
+                    f_enc = m_txt.group(1)
+                    if "-" in f_enc: return datetime.strptime(f_enc, "%Y-%m-%d").strftime("%d/%m/%Y")
+                    return f_enc
             except: pass
-            
         return "No indicada"
 
     def cargar_y_limpiar_historial():
@@ -209,11 +228,11 @@ if check_password():
         with st.expander("📡 Radar de Licitaciones", expanded=True):
             opcion_navegacion = st.radio(
                 "Menú", 
-                ["🔍 Búsqueda Licitaciones", "📁 Archivos e Informes"],
+                ["🔍 Búsqueda Licitaciones", "📁 Archivos e Informes", "📄 Generación de Informes"],
                 label_visibility="collapsed"
             )
             
-        st.markdown("<div style='height: 55vh;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 50vh;'></div>", unsafe_allow_html=True)
         
         if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state["password_correct"] = False
@@ -238,7 +257,7 @@ if check_password():
 
     columnas_ver = ["Publicado", "Organismo", "Título", "Presupuesto", "Fin Plazo", "Palabras Detectadas", "Enlace Oficial"]
 
-    # VISTA 1: BÚSQUEDA
+    # --- VISTA 1: BÚSQUEDA ---
     if opcion_navegacion == "🔍 Búsqueda Licitaciones":
         st.subheader("Búsqueda en Tiempo Real")
         st.write("Pulsa el botón para escanear las últimas publicaciones de la Plataforma de Contratación del Estado.")
@@ -255,18 +274,13 @@ if check_password():
                     coin = sorted(list(set([k.upper() for k in KEYWORDS if normalizar(k) in txt])))
                     
                     if coin:
-                        # Extraemos la fecha con el escáner definitivo
                         fecha_cierre_str = extraer_fecha_cierre(e, res)
                         es_valida = True
-                        
-                        # Comprobamos si está caducada
                         if fecha_cierre_str != "No indicada":
                             try:
                                 fecha_cierre_dt = datetime.strptime(fecha_cierre_str, "%d/%m/%Y").date()
-                                if fecha_cierre_dt < hoy:
-                                    es_valida = False 
-                            except:
-                                pass 
+                                if fecha_cierre_dt < hoy: es_valida = False 
+                            except: pass 
                         
                         if es_valida:
                             org = "No detectado"
@@ -277,13 +291,9 @@ if check_password():
                             except: f_pub = datetime.now().strftime("%d/%m/%Y")
                             
                             encontradas.append({
-                                "Publicado": f_pub, 
-                                "Organismo": org, 
-                                "Título": e.title, 
-                                "Presupuesto": extraer_presupuesto(res), 
-                                "Fin Plazo": fecha_cierre_str,
-                                "Palabras Detectadas": ", ".join(coin), 
-                                "Enlace Oficial": e.link
+                                "Publicado": f_pub, "Organismo": org, "Título": e.title, 
+                                "Presupuesto": extraer_presupuesto(res), "Fin Plazo": fecha_cierre_str,
+                                "Palabras Detectadas": ", ".join(coin), "Enlace Oficial": e.link
                             })
 
             historial, nuevas = guardar_en_historial(encontradas)
@@ -293,9 +303,9 @@ if check_password():
                 for c in columnas_ver:
                     if c not in df.columns: df[c] = "N/A"
                 st.dataframe(df[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
-            else: st.info("No hay novedades vigentes en este momento. Las ofertas detectadas ya han expirado.")
+            else: st.info("No hay novedades vigentes en este momento.")
 
-    # VISTA 2: ARCHIVOS E INFORMES
+    # --- VISTA 2: ARCHIVOS E INFORMES ---
     elif opcion_navegacion == "📁 Archivos e Informes":
         st.subheader("Base de Datos e Informes")
         hist = cargar_y_limpiar_historial()
@@ -311,7 +321,6 @@ if check_password():
             st.dataframe(df_hist[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             
             st.write("---") 
-            
             st.markdown('<div class="action-buttons">', unsafe_allow_html=True)
             col1, col2, col3 = st.columns([2, 2, 4]) 
             
@@ -325,6 +334,137 @@ if check_password():
                     if os.path.exists(ARCHIVO_HISTORIAL): os.remove(ARCHIVO_HISTORIAL)
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-            
         else: 
             st.info("El historial está vacío. Ve a la sección 'Búsqueda Licitaciones' para escanear.")
+
+    # --- VISTA 3: GENERACIÓN DE INFORMES (GEMINI IA) ---
+    elif opcion_navegacion == "📄 Generación de Informes":
+        st.subheader("Analista de Licitaciones por IA")
+        st.write("Arrastra aquí los pliegos (Técnico, Administrativo, etc.) descargados del Estado y deja que la IA genere un informe de viabilidad ejecutivo en formato PDF.")
+        
+        archivos_subidos = st.file_uploader("Cargar Pliegos (Formato PDF)", type=["pdf"], accept_multiple_files=True)
+        
+        if st.button("Analizar con IA y Generar PDF", type="primary"):
+            if not archivos_subidos:
+                st.warning("⚠️ Por favor, sube al menos un documento PDF para analizar.")
+            else:
+                if "GEMINI_API_KEY" not in st.secrets:
+                    st.error("⚠️ Falta la clave GEMINI_API_KEY en los secretos de Streamlit.")
+                else:
+                    with st.spinner("🧠 Leyendo pliegos y analizando viabilidad... Esto puede tardar 1 o 2 minutos."):
+                        try:
+                            # 1. Configurar Cliente Gemini
+                            client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+                            documentos_para_ia = []
+                            rutas_temporales = []
+                            
+                            # 2. Guardar temporalmente para que Gemini pueda leerlos
+                            for archivo in archivos_subidos:
+                                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                                    tmp.write(archivo.getvalue())
+                                    tmp_path = tmp.name
+                                    rutas_temporales.append(tmp_path)
+                                
+                                # Subir a Gemini
+                                doc_ia = client.files.upload(file=tmp_path)
+                                documentos_para_ia.append(doc_ia)
+                                
+                            # 3. Llamada a la IA
+                            response = client.models.generate_content(
+                                model='gemini-2.5-flash',
+                                contents=[PROMPT_MAESTRO] + documentos_para_ia
+                            )
+                            
+                            # Limpiar archivos temporales del servidor
+                            for ruta in rutas_temporales:
+                                os.remove(ruta)
+                            
+                            # 4. Procesar JSON devuelto
+                            texto_limpio = response.text.strip().replace("```json", "").replace("```", "")
+                            datos = json.loads(texto_limpio)
+                            
+                            # 5. Maquetación HTML del PDF
+                            html_filas_tabla = ""
+                            for fila in datos.get('datos_iniciales', []):
+                                html_filas_tabla += f"<tr><td><strong>{fila.get('concepto', '')}</strong></td><td>{fila.get('detalle', '')}</td></tr>\n"
+                                
+                            html_alcance = "".join([f"<li>{i}</li>" for i in datos.get('alcance', [])])
+                            html_pros = "".join([f"<li>{i}</li>" for i in datos.get('pros', [])])
+                            html_contras = "".join([f"<li>{i}</li>" for i in datos.get('contras', [])])
+                            
+                            # Ruta del Logo
+                            ruta_logo = "logo.png" if os.path.exists("logo.png") else ""
+                            etiqueta_logo = f'<img src="{ruta_logo}" height="25" />' if ruta_logo else ''
+                            
+                            html_final = f"""
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                            <meta charset="UTF-8">
+                            <style>
+                                @page {{
+                                    size: A4;
+                                    margin-top: 3.5cm; margin-bottom: 2.5cm; margin-left: 1.5cm; margin-right: 1.5cm;
+                                    @frame header_frame {{ -pdf-frame-content: header_content; top: 1cm; margin-left: 1.5cm; margin-right: 1.5cm; height: 1.5cm; }}
+                                    @frame footer_frame {{ -pdf-frame-content: footer_content; bottom: 1cm; margin-left: 1.5cm; margin-right: 1.5cm; height: 1cm; }}
+                                }}
+                                body {{ font-family: "Helvetica", Arial, sans-serif; font-size: 12pt; color: #333333; }}
+                                #header_content {{ text-align: right; }}
+                                #footer_content {{ text-align: right; font-size: 10pt; color: #888888; }}
+                                .titulo-principal {{ text-align: center; color: #002C5F; font-size: 16pt; font-weight: bold; border-bottom: 1.5pt solid #002C5F; padding-bottom: 4pt; margin-bottom: 20pt; text-transform: uppercase; }}
+                                .seccion {{ background-color: #F0F4F8; color: #002C5F; padding: 4pt 8pt; font-size: 13pt; font-weight: bold; border-left: 3px solid #002C5F; margin-top: 15pt; margin-bottom: 10pt; text-transform: uppercase; }}
+                                table {{ width: 100%; border-collapse: collapse; margin-bottom: 15pt; }}
+                                th {{ background-color: #002C5F; color: white; padding: 6pt 8pt; text-align: left; font-size: 12pt; }}
+                                td {{ padding: 6pt 8pt; border-bottom: 1pt solid #DDDDDD; font-size: 12pt; vertical-align: top; }}
+                                tr:nth-child(even) {{ background-color: #FBFBFB; }}
+                                ul {{ margin-top: 5pt; margin-bottom: 15pt; padding-left: 18pt; }}
+                                li {{ margin-bottom: 5pt; text-align: justify; line-height: 1.4; }}
+                                .nota {{ font-size: 14pt; font-weight: bold; color: #002C5F; margin-bottom: 5pt; }}
+                                .pros {{ color: #006600; font-weight: bold; margin-bottom: 3pt; font-size: 12pt; }}
+                                .contras {{ color: #990000; font-weight: bold; margin-bottom: 3pt; margin-top: 10pt; font-size: 12pt; }}
+                                .texto-justificado {{ text-align: justify; line-height: 1.4; }}
+                            </style>
+                            </head>
+                            <body>
+                                <div id="header_content">{etiqueta_logo}</div>
+                                <div id="footer_content">Página <pdf:pagenumber> de <pdf:pagecount></div>
+                                <div class="titulo-principal">ANÁLISIS DE OFERTA: {datos.get('titulo_oferta', '')}</div>
+                                <div class="seccion">1. DATOS INICIALES</div>
+                                <table>
+                                    <tr><th width="20%">CONCEPTO</th><th>DETALLE</th></tr>
+                                    {html_filas_tabla}
+                                </table>
+                                <div class="seccion">2. ALCANCE</div>
+                                <ul>{html_alcance}</ul>
+                                <div class="seccion">3. ANÁLISIS DE VIABILIDAD</div>
+                                <div class="pros">VENTAJAS (PROS):</div>
+                                <ul>{html_pros}</ul>
+                                <div class="contras">RIESGOS Y PENALIZACIONES (CONTRAS):</div>
+                                <ul>{html_contras}</ul>
+                                <div class="seccion">4. VALORACIÓN</div>
+                                <div class="nota">PUNTUACIÓN: {datos.get('valoracion_puntuacion', '')}</div>
+                                <div class="texto-justificado">{datos.get('valoracion_texto', '')}</div>
+                            </body>
+                            </html>
+                            """
+                            
+                            # 6. Generar PDF en Buffer (sin guardar en disco)
+                            pdf_buffer = io.BytesIO()
+                            pisa_status = pisa.CreatePDF(html_final, dest=pdf_buffer)
+                            
+                            if pisa_status.err:
+                                st.error("❌ Ocurrió un error al intentar crear el documento PDF.")
+                            else:
+                                st.success("✅ ¡Análisis completado! Tu informe ejecutivo está listo.")
+                                
+                                # Botón de descarga
+                                st.download_button(
+                                    label="📥 Descargar Informe en PDF",
+                                    data=pdf_buffer.getvalue(),
+                                    file_name=f"Viabilidad_{datos.get('titulo_oferta', 'Anerpro')[:20]}.pdf",
+                                    mime="application/pdf",
+                                    type="primary"
+                                )
+                                
+                        except Exception as e:
+                            st.error(f"❌ Error durante el procesamiento con IA: {e}")
