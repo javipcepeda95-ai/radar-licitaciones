@@ -15,7 +15,7 @@ from xhtml2pdf import pisa
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="📡", layout="wide")
 
 # ==============================================================================
-# --- 2. CSS AVANZADO (DISEÑO CORPORATIVO REFINADO Y AJUSTES DE ESPACIO) ---
+# --- 2. CSS AVANZADO (DISEÑO CORPORATIVO Y POSICIONAMIENTO EXTREMO) ---
 # ==============================================================================
 st.markdown(
     """
@@ -25,7 +25,7 @@ st.markdown(
         /* Ocultar navegación nativa de Streamlit */
         [data-testid="stSidebarNav"] { display: none !important; }
         
-        /* Subir la cabecera del cuerpo principal */
+        /* Ajuste margen superior cuerpo principal */
         .block-container {
             padding-top: 3rem !important; 
         }
@@ -58,42 +58,53 @@ st.markdown(
             border-radius: 8px !important;
         }
 
-        /* --- AJUSTE LOGO SIDEBAR --- */
+        /* --- CONFIGURACIÓN RADICAL SIDEBAR --- */
         [data-testid="stSidebar"] {
             background-color: #fcfcfc;
         }
         
-        /* Eliminamos el padding superior de la barra lateral para subir el logo */
         [data-testid="stSidebarContent"] {
-            padding-top: 0.5rem !important;
+            padding-top: 0rem !important;
+            position: relative !important;
         }
 
-        /* Contenedor del logo pegado arriba a la izquierda */
+        /* Logo: Arriba a la izquierda absoluto */
         .logo-container-sidebar {
-            text-align: left !important;
-            padding-left: 10px;
-            margin-bottom: 5px;
+            position: absolute;
+            top: 5px !important;
+            left: 10px !important;
+            z-index: 999;
         }
         
-        /* Línea divisoria personalizada */
+        /* Espaciador para el contenido debajo del logo */
+        .sidebar-top-spacer {
+            height: 70px;
+        }
+
+        /* Raya divisoria entre logo y menu */
         .sidebar-divider {
             border-top: 1px solid #e6e9ef;
             margin: 10px 0 20px 0;
             width: 100%;
         }
 
-        /* --- REDUCCIÓN DE HUECOS EN EL MENÚ --- */
-        /* Eliminamos padding del expander y del radio group */
+        /* --- MINIMIZAR HUECOS EN EL MENÚ --- */
+        /* Eliminamos el espacio superior del contenido del expander */
         .st-expanderContent {
             padding-top: 0px !important;
             padding-bottom: 0px !important;
         }
         
+        /* Quitamos el margen superior del radio para pegarlo al encabezado "Menu" */
+        div[data-testid="stRadio"] {
+            margin-top: -15px !important;
+        }
+        
         div[data-testid="stRadio"] > div {
-            gap: 0px !important; /* Quita el espacio entre las opciones del radio */
+            gap: 0px !important;
         }
 
-        /* Ajuste para que el texto de las opciones no se corte */
+        /* Evitar cortes en los iconos y texto */
         [data-testid="stSidebar"] [data-testid="stRadio"] label {
             overflow: visible !important;
             padding: 2px 0px !important;
@@ -104,17 +115,26 @@ st.markdown(
         
         [data-testid="stSidebar"] [data-testid="stRadio"] label p {
             font-size: 0.95rem !important;
-            white-space: nowrap !important; /* Evita que salte de línea */
+            white-space: nowrap !important;
             margin-left: 4px !important;
+            margin-bottom: 0px !important;
         }
 
-        /* Estilo del expander "Menu" */
+        /* Estilo del expander Menu */
         .st-expanderHeader {
             font-weight: bold !important;
             color: #31333F !important;
             border: 1px solid #f0f2f6 !important;
             border-radius: 8px !important;
             background-color: white !important;
+        }
+
+        /* --- BOTÓN CERRAR SESIÓN: ABAJO A LA DERECHA --- */
+        .logout-fixed-container {
+            position: fixed;
+            bottom: 20px;
+            left: 200px; /* Ajuste para pegarlo a la derecha del sidebar */
+            z-index: 1000;
         }
     </style>
     """,
@@ -220,7 +240,7 @@ if check_password():
                 except: return []
         return []
 
-    # --- 6. BARRA LATERAL (DISEÑO REFINADO) ---
+    # --- 6. BARRA LATERAL (AJUSTES DE DISEÑO SOLICITADOS) ---
     with st.sidebar:
         # Logo arriba a la izquierda
         st.markdown('<div class="logo-container-sidebar">', unsafe_allow_html=True)
@@ -228,10 +248,13 @@ if check_password():
             st.image("logo.png", width=120)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Raya divisoria restaurada
+        # Espaciador para no pisar el logo
+        st.markdown('<div class="sidebar-top-spacer"></div>', unsafe_allow_html=True)
+        
+        # Raya divisoria
         st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
         
-        # El "Menu" desplegable sin huecos internos
+        # El "Menu" desplegable pegado a las opciones
         with st.expander("Menu", expanded=False):
             opcion = st.radio(
                 "",
@@ -239,10 +262,14 @@ if check_password():
                 label_visibility="collapsed"
             )
         
-        st.markdown("<div style='height: 40vh;'></div>", unsafe_allow_html=True)
-        if st.button("Cerrar Sesión", use_container_width=True):
-            st.session_state["password_correct"] = False
-            st.rerun()
+        # Contenedor para el botón de cierre abajo a la derecha
+        # Usamos un truco de columnas dentro de un bloque absoluto
+        st.markdown('<div style="height: 40vh;"></div>', unsafe_allow_html=True)
+        col_side1, col_side2 = st.columns([1, 2.5])
+        with col_side2:
+            if st.button("Cerrar Sesión", use_container_width=True):
+                st.session_state["password_correct"] = False
+                st.rerun()
 
     # Configuración de tabla
     config_tabla = {
@@ -342,6 +369,7 @@ if check_password():
                     
                     datos = json.loads(response.text.strip().replace("```json", "").replace("```", ""))
                     
+                    # MAQUETACIÓN PREMIUM
                     html_filas = "".join([f"<tr><td><strong>{f['concepto']}</strong></td><td>{f['detalle']}</td></tr>" for f in datos.get('datos_initiales', [])])
                     ruta_logo = os.path.abspath("logo.png")
                     logo_tag = f'<img src="{ruta_logo}" height="25" />' if os.path.exists(ruta_logo) else ''
