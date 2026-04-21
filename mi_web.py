@@ -40,29 +40,19 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- EL PROMPT MAESTRO (Tu original de analistaG.py) ---
+# --- EL PROMPT MAESTRO (Original de Anerpro) ---
 PROMPT_MAESTRO = """
 Actúa como un Analista Experto en Contratación Pública. Contexto: ANERPRO es empresa EPCista (ciclo del agua, MT/BT, biogás, automatización). ROLECE: I-5-2; I-6-3; I-8-1; I-9-3; J-2-3; J-3-2; J-4-3; J-5-4; K-9-1; O-4-1; P-1-1; P-2-3; P-3-3; P-5-1; Q-1-3.
 
-ANALIZA los pliegos adjuntos y DEVUELVE ÚNICA Y EXCLUSIVAMENTE UN OBJETO JSON VÁLIDO con la siguiente estructura (sin texto extra):
-
+ANALIZA los pliegos adjuntos y DEVUELVE ÚNICA Y EXCLUSIVAMENTE UN OBJETO JSON VÁLIDO con la estructura solicitada:
 {
-  "titulo_oferta": "Nombre exacto del proyecto",
-  "datos_iniciales": [
-    {"concepto": "Ubicación", "detalle": "Localidad y provincia"},
-    {"concepto": "Expediente", "detalle": "Entidad y número"},
-    {"concepto": "Visita", "detalle": "¿Obligatoria? Fecha y lugar"},
-    {"concepto": "Plazos", "detalle": "Ejecución"},
-    {"concepto": "Presupuesto", "detalle": "Importe sin IVA"},
-    {"concepto": "Solvencia", "detalle": "¿Cumplimos ROLECE? Si no, solvencia alternativa"},
-    {"concepto": "Medios", "detalle": "Personal y material mínimo"},
-    {"concepto": "Adjudicación", "detalle": "Criterios en %"}
-  ],
-  "alcance": ["Punto clave 1", "Punto clave 2", "Punto clave 3..."],
-  "pros": ["Ventaja 1", "Ventaja 2..."],
-  "contras": ["Riesgo o penalización 1", "Riesgo 2..."],
+  "titulo_oferta": "Nombre del proyecto",
+  "datos_iniciales": [{"concepto": "Ubicación", "detalle": "..."}, {"concepto": "Presupuesto", "detalle": "..."}],
+  "alcance": ["punto 1", "punto 2"],
+  "pros": ["ventaja 1"],
+  "contras": ["riesgo 1"],
   "valoracion_puntuacion": "Nota/10",
-  "valoracion_texto": "Justificación ejecutiva."
+  "valoracion_texto": "Resumen ejecutivo."
 }
 """
 
@@ -144,10 +134,7 @@ if check_password():
                             encontradas.append({
                                 "Publicado": datetime.now().strftime("%d/%m/%Y"),
                                 "Organismo": e.get('author', 'No detectado'),
-                                "Título": e.title,
-                                "Fin Plazo": f_cierre,
-                                "Palabras Detectadas": ", ".join(coin),
-                                "Enlace Oficial": e.link
+                                "Título": e.title, "Fin Plazo": f_cierre, "Palabras Detectadas": ", ".join(coin), "Enlace Oficial": e.link
                             })
             hist = cargar_historial()
             vistos = {o["Enlace Oficial"] for o in hist}
@@ -167,84 +154,71 @@ if check_password():
             busq = st.text_input("Buscar en el historial:")
             if busq: df = df[df.apply(lambda r: busq.lower() in r.astype(str).str.lower().str.cat(), axis=1)]
             st.dataframe(df, use_container_width=True)
-            if st.button("🗑️ Reset", use_container_width=True):
+            if st.button("🗑️ Reset"):
                 if os.path.exists(ARCHIVO_HISTORIAL): os.remove(ARCHIVO_HISTORIAL)
                 st.rerun()
         else: st.info("Historial vacío.")
 
-    # --- VISTA 3: ANALISTA IA (FIXED 404 AND RESTORED PDF STYLE) ---
+    # --- VISTA 3: ANALISTA IA (FIXED 404) ---
     elif opcion == "📄 Generación de Informes":
         st.subheader("Analista de Licitaciones IA")
-        files = st.file_uploader("Sube pliegos PDF para analizar", type="pdf", accept_multiple_files=True)
+        files = st.file_uploader("Sube pliegos PDF", type="pdf", accept_multiple_files=True)
         
         if st.button("Analizar con IA y Generar PDF", type="primary") and files:
             with st.spinner("🧠 Gemini analizando pliegos..."):
                 try:
-                    # Configuración robusta del modelo
                     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                    # Usamos gemini-1.5-flash y forzamos salida JSON para evitar errores de parseo
-                    model = genai.GenerativeModel(
-                        model_name='gemini-1.5-flash',
-                        generation_config={"response_mime_type": "application/json"}
-                    )
+                    # USAMOS EL NOMBRE COMPLETO DEL MODELO PARA EVITAR 404
+                    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash')
                     
                     docs_ia = []
-                    temp_paths = []
+                    temp_files = []
                     for f in files:
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                             tmp.write(f.getvalue())
-                            temp_paths.append(tmp.name)
+                            temp_files.append(tmp.name)
                             docs_ia.append(genai.upload_file(path=tmp.name))
                     
-                    # Llamada a la IA
                     response = model.generate_content([PROMPT_MAESTRO] + docs_ia)
-                    datos = json.loads(response.text)
                     
-                    # Limpieza de archivos temporales
-                    for p in temp_paths: os.remove(p)
+                    # Extraer JSON limpio de la respuesta
+                    raw_text = response.text
+                    json_text = re.search(r'\{.*\}', raw_text, re.DOTALL).group(0)
+                    datos = json.loads(json_text)
+                    
+                    # Limpieza archivos temporales
+                    for p in temp_files: os.remove(p)
 
-                    # --- RECONSTRUCCIÓN DEL HTML CORPORATIVO (De tu analistaG.py) ---
-                    html_filas = "".join([f"<tr><td><strong>{i['concepto']}</strong></td><td>{i['detalle']}</td></tr>" for i in datos.get('datos_initiales', datos.get('datos_iniciales', []))])
+                    # --- RECONSTRUCCIÓN HTML CORPORATIVO ---
+                    html_filas = "".join([f"<tr><td style='border-bottom:1px solid #ddd;padding:8px;'><b>{i['concepto']}</b></td><td style='border-bottom:1px solid #ddd;padding:8px;'>{i['detalle']}</td></tr>" for i in datos.get('datos_iniciales', [])])
                     
                     html_final = f"""
                     <html>
-                    <head>
-                    <style>
-                        @page {{ size: A4; margin: 2cm; }}
-                        body {{ font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #333; }}
-                        .titulo-principal {{ text-align: center; color: #002C5F; font-size: 16pt; font-weight: bold; border-bottom: 2px solid #002C5F; padding-bottom: 10px; margin-bottom: 20px; }}
-                        .seccion {{ background-color: #F0F4F8; color: #002C5F; padding: 5px 10px; font-size: 12pt; font-weight: bold; border-left: 4px solid #002C5F; margin-top: 15px; }}
-                        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                        th {{ background-color: #002C5F; color: white; padding: 8px; text-align: left; }}
-                        td {{ padding: 8px; border-bottom: 1px solid #EEE; vertical-align: top; }}
-                        .nota {{ font-size: 14pt; font-weight: bold; color: #002C5F; margin-top: 20px; }}
-                        .pros {{ color: #006600; font-weight: bold; }}
-                        .contras {{ color: #990000; font-weight: bold; }}
-                    </style>
-                    </head>
-                    <body>
-                        <div class="titulo-principal">ANÁLISIS DE OFERTA: {datos.get('titulo_oferta', 'S/N')}</div>
-                        <div class="seccion">1. DATOS INICIALES</div>
-                        <table>{html_filas}</table>
-                        <div class="seccion">2. ALCANCE TÉCNICO</div>
+                    <body style="font-family: Helvetica, sans-serif; color: #333;">
+                        <div style="text-align:center; border-bottom: 2px solid #002C5F; padding-bottom:10px;">
+                            <h1 style="color:#002C5F; margin-bottom:0;">INFORME DE VIABILIDAD ANERPRO</h1>
+                            <p style="color:#666;">{datos.get('titulo_oferta', 'S/N')}</p>
+                        </div>
+                        <h2 style="background:#F0F4F8; color:#002C5F; padding:5px;">1. DATOS CLAVE</h2>
+                        <table style="width:100%; border-collapse:collapse;">{html_filas}</table>
+                        <h2 style="background:#F0F4F8; color:#002C5F; padding:5px;">2. ALCANCE</h2>
                         <ul>{"".join([f"<li>{i}</li>" for i in datos.get('alcance', [])])}</ul>
-                        <div class="seccion">3. VIABILIDAD (PROS Y CONTRAS)</div>
-                        <p class="pros">VENTAJAS:</p>
+                        <h2 style="background:#F0F4F8; color:#002C5F; padding:5px;">3. VIABILIDAD</h2>
+                        <p style="color:green;"><b>VENTAJAS:</b></p>
                         <ul>{"".join([f"<li>{i}</li>" for i in datos.get('pros', [])])}</ul>
-                        <p class="contras">RIESGOS:</p>
+                        <p style="color:red;"><b>RIESGOS:</b></p>
                         <ul>{"".join([f"<li>{i}</li>" for i in datos.get('contras', [])])}</ul>
-                        <div class="seccion">4. VALORACIÓN FINAL</div>
-                        <div class="nota">PUNTUACIÓN: {datos.get('valoracion_puntuacion', '-')}</div>
-                        <p>{datos.get('valoracion_texto', '')}</p>
+                        <h2 style="background:#F0F4F8; color:#002C5F; padding:5px;">4. CONCLUSIÓN</h2>
+                        <div style="font-size:18px; font-weight:bold; color:#002C5F;">NOTA: {datos.get('valoracion_puntuacion', '-')}</div>
+                        <p style="text-align:justify;">{datos.get('valoracion_texto', '')}</p>
                     </body>
                     </html>
                     """
                     
-                    # Generación de PDF
                     pdf_buf = io.BytesIO()
                     pisa.CreatePDF(html_final, dest=pdf_buf)
-                    st.success("✅ Análisis completado con éxito")
-                    st.download_button("📥 Descargar Informe Anerpro", data=pdf_buf.getvalue(), file_name=f"Analisis_{datetime.now().strftime('%Y%m%d')}.pdf", mime="application/pdf")
+                    st.success("✅ Análisis completado")
+                    st.download_button("📥 Descargar Informe Anerpro", data=pdf_buf.getvalue(), file_name=f"Analisis_{datetime.now().strftime('%d%m%y')}.pdf", mime="application/pdf")
                 
                 except Exception as e:
                     st.error(f"Error en el análisis: {str(e)}")
