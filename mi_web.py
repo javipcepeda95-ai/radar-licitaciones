@@ -27,6 +27,12 @@ st.markdown(
             margin-top: -30px !important;
         }
 
+        /* --- SUBIR EL CONTENIDO PRINCIPAL --- */
+        /* Eliminamos el enorme margen blanco que Streamlit deja por defecto arriba */
+        .block-container {
+            padding-top: 2rem !important;
+        }
+
         /* --- ESTILOS DE CABECERA --- */
         .radar-header {
             display: flex;
@@ -156,9 +162,8 @@ if check_password():
             if os.path.exists(ARCHIVO_HISTORIAL): os.remove(ARCHIVO_HISTORIAL)
             st.rerun()
             
-        # ESPACIADOR INVISIBLE: Ocupa el 50% de la altura de la pantalla
-        # Esto empuja físicamente el botón inferior hacia abajo sin romper el CSS
-        st.markdown("<div style='height: 50vh;'></div>", unsafe_allow_html=True)
+        # ESPACIADOR INVISIBLE: Aumentado a 65vh para empujar el botón más abajo
+        st.markdown("<div style='height: 65vh;'></div>", unsafe_allow_html=True)
         
         # Cerrar Sesión
         if st.button("Cerrar Sesión", use_container_width=True):
