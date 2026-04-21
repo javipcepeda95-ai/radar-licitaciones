@@ -138,10 +138,30 @@ def mostrar_cabecera(titulo):
         """, unsafe_allow_html=True
     )
 
-# --- PROMPT MAESTRO ---
+# --- PROMPT MAESTRO (Importado exactamente de analista.py) ---
 PROMPT_MAESTRO = """
 Actúa como un Analista Experto en Contratación Pública. Contexto: ANERPRO es empresa EPCista (ciclo del agua, MT/BT, biogás, automatización). ROLECE: I-5-2; I-6-3; I-8-1; I-9-3; J-2-3; J-3-2; J-4-3; J-5-4; K-9-1; O-4-1; P-1-1; P-2-3; P-3-3; P-5-1; Q-1-3.
-ANALIZA y devuelve JSON: { "titulo_oferta": "...", "datos_initiales": [...], "alcance": [...], "pros": [...], "contras": [...], "valoracion_puntuacion": "...", "valoracion_texto": "..." }
+
+ANALIZA los pliegos adjuntos y DEVUELVE ÚNICA Y EXCLUSIVAMENTE UN OBJETO JSON VÁLIDO con la siguiente estructura (sin texto extra):
+
+{
+  "titulo_oferta": "Nombre exacto del proyecto",
+  "datos_iniciales": [
+    {"concepto": "Ubicación", "detalle": "Localidad y provincia"},
+    {"concepto": "Expediente", "detalle": "Entidad y número"},
+    {"concepto": "Visita", "detalle": "¿Obligatoria? Fecha y lugar"},
+    {"concepto": "Plazos", "detalle": "Ejecución"},
+    {"concepto": "Presupuesto", "detalle": "Importe sin IVA"},
+    {"concepto": "Solvencia", "detalle": "¿Cumplimos ROLECE? Si no, solvencia alternativa"},
+    {"concepto": "Medios", "detalle": "Personal y material mínimo"},
+    {"concepto": "Adjudicación", "detalle": "Criterios en %"}
+  ],
+  "alcance": ["Punto clave 1", "Punto clave 2", "Punto clave 3..."],
+  "pros": ["Ventaja 1", "Ventaja 2..."],
+  "contras": ["Riesgo o penalización 1", "Riesgo 2..."],
+  "valoracion_puntuacion": "Nota/10",
+  "valoracion_texto": "Justificación ejecutiva."
+}
 """
 
 # --- 3. SISTEMA DE SEGURIDAD ---
@@ -221,7 +241,7 @@ if check_password():
                 except: return []
         return []
 
-    # --- 6. BARRA LATERAL (DISEÑO SEGURO) ---
+    # --- 6. BARRA LATERAL ---
     with st.sidebar:
         # Logo arriba de forma nativa
         if os.path.exists("logo.png"): 
@@ -230,7 +250,7 @@ if check_password():
         # Raya divisoria bajo el logo
         st.markdown('<hr style="margin: 5px 0px 15px 0px; border-top: 1.5px solid #e6e9ef;">', unsafe_allow_html=True)
         
-        # Expander "Menu" sin texto de navegación
+        # Expander "Menu"
         with st.expander("Menu", expanded=False):
             opcion = st.radio(
                 "", 
@@ -241,7 +261,7 @@ if check_password():
         # Espaciador nativo para empujar el botón "Cerrar Sesión" al fondo
         st.markdown("<div style='height: 45vh;'></div>", unsafe_allow_html=True)
         
-        # Botón de cierre de sesión (El CSS lo estiliza limpio)
+        # Botón de cierre de sesión
         if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state["password_correct"] = False
             st.rerun()
@@ -329,7 +349,7 @@ if check_password():
         archivos = st.file_uploader("Subir pliegos", type="pdf", accept_multiple_files=True)
         
         if st.button("Analizar con IA y Generar PDF", type="primary") and archivos:
-            with st.spinner("🧠 Analizando documentos con Gemini 2.0 Flash..."):
+            with st.spinner("🧠 Analizando documentos con Gemini 2.5 Flash..."):
                 try:
                     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
                     docs_ia, rutas = [], []
@@ -339,44 +359,114 @@ if check_password():
                             rutas.append(tmp.name)
                             docs_ia.append(client.files.upload(file=tmp.name))
                     
-                    response = client.models.generate_content(model='gemini-2.0-flash', contents=[PROMPT_MAESTRO] + docs_ia)
+                    # CAMBIADO EXACTAMENTE AL MODELO QUE USAS EN ANALISTA.PY PARA EVITAR ERROR DE CUOTA
+                    response = client.models.generate_content(
+                        model='gemini-2.5-flash', 
+                        contents=[PROMPT_MAESTRO] + docs_ia
+                    )
+                    
                     for r in rutas: os.remove(r)
                     
                     datos = json.loads(response.text.strip().replace("```json", "").replace("```", ""))
                     
-                    html_filas = "".join([f"<tr><td><strong>{f['concepto']}</strong></td><td>{f['detalle']}</td></tr>" for f in datos.get('datos_initiales', [])])
+                    # MAQUETACIÓN CORPORATIVA IMPORTADA EXACTAMENTE DE ANALISTA.PY
+                    html_filas_tabla = ""
+                    for fila in datos.get('datos_iniciales', []):
+                        html_filas_tabla += f"<tr><td><strong>{fila.get('concepto', '')}</strong></td><td>{fila.get('detalle', '')}</td></tr>\n"
+                        
+                    html_alcance = "".join([f"<li>{i}</li>" for i in datos.get('alcance', [])])
+                    html_pros = "".join([f"<li>{i}</li>" for i in datos.get('pros', [])])
+                    html_contras = "".join([f"<li>{i}</li>" for i in datos.get('contras', [])])
+                    
                     ruta_logo = os.path.abspath("logo.png")
-                    logo_tag = f'<img src="{ruta_logo}" height="25" />' if os.path.exists(ruta_logo) else ''
+                    etiqueta_logo = f'<img src="{ruta_logo}" height="25" />' if os.path.exists(ruta_logo) else ''
                     
                     html_final = f"""
+                    <!DOCTYPE html>
                     <html>
                     <head>
+                    <meta charset="UTF-8">
                     <style>
-                        @page {{ size: A4; margin-top: 3.5cm; margin-bottom: 2.5cm; margin-left: 1.5cm; margin-right: 1.5cm;
-                               @frame header_frame {{ -pdf-frame-content: hc; top: 1cm; height: 1.5cm; }}
-                               @frame footer_frame {{ -pdf-frame-content: fc; bottom: 1cm; height: 1cm; }} }}
-                        body {{ font-family: Helvetica, sans-serif; font-size: 11pt; color: #333; }}
-                        #hc {{ text-align: right; }} #fc {{ text-align: right; font-size: 9pt; color: #888; }}
-                        .tit {{ text-align: center; color: #002C5F; font-size: 16pt; font-weight: bold; border-bottom: 2px solid #002C5F; padding-bottom: 5px; text-transform: uppercase; }}
-                        .sec {{ background-color: #F0F4F8; color: #002C5F; padding: 5px 10px; font-weight: bold; border-left: 4px solid #002C5F; margin-top: 15px; }}
-                        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                        th {{ background-color: #002C5F; color: white; padding: 8px; text-align: left; }}
-                        td {{ padding: 8px; border-bottom: 1px solid #EEE; vertical-align: top; }}
+                        @page {{
+                            size: A4;
+                            margin-top: 3.5cm; 
+                            margin-bottom: 2.5cm; 
+                            margin-left: 1.5cm;
+                            margin-right: 1.5cm;
+                            
+                            @frame header_frame {{
+                                -pdf-frame-content: header_content;
+                                top: 1cm;
+                                margin-left: 1.5cm;
+                                margin-right: 1.5cm;
+                                height: 1.5cm;
+                            }}
+                            
+                            @frame footer_frame {{
+                                -pdf-frame-content: footer_content;
+                                bottom: 1cm;
+                                margin-left: 1.5cm;
+                                margin-right: 1.5cm;
+                                height: 1cm;
+                            }}
+                        }}
+                        
+                        /* FUENTE APTOS Y TAMAÑO 12PT (Igual que Word) */
+                        body {{ font-family: "Aptos", Helvetica, Arial, sans-serif; font-size: 12pt; color: #333333; }}
+                        
+                        #header_content {{ text-align: right; }}
+                        #footer_content {{ text-align: right; font-size: 10pt; color: #888888; }}
+                        
+                        .titulo-principal {{ text-align: center; color: #002C5F; font-size: 16pt; font-weight: bold; border-bottom: 1.5pt solid #002C5F; padding-bottom: 4pt; margin-bottom: 20pt; text-transform: uppercase; }}
+                        
+                        .seccion {{ background-color: #F0F4F8; color: #002C5F; padding: 4pt 8pt; font-size: 13pt; font-weight: bold; border-left: 3px solid #002C5F; margin-top: 15pt; margin-bottom: 10pt; text-transform: uppercase; }}
+                        
+                        table {{ width: 100%; border-collapse: collapse; margin-bottom: 15pt; }}
+                        th {{ background-color: #002C5F; color: white; padding: 6pt 8pt; text-align: left; font-size: 12pt; }}
+                        td {{ padding: 6pt 8pt; border-bottom: 1pt solid #DDDDDD; font-size: 12pt; vertical-align: top; }}
+                        tr:nth-child(even) {{ background-color: #FBFBFB; }}
+                        
+                        ul {{ margin-top: 5pt; margin-bottom: 15pt; padding-left: 18pt; }}
+                        li {{ margin-bottom: 5pt; text-align: justify; line-height: 1.4; }}
+                        .nota {{ font-size: 14pt; font-weight: bold; color: #002C5F; margin-bottom: 5pt; }}
+                        .pros {{ color: #006600; font-weight: bold; margin-bottom: 3pt; font-size: 12pt; }}
+                        .contras {{ color: #990000; font-weight: bold; margin-bottom: 3pt; margin-top: 10pt; font-size: 12pt; }}
+                        .texto-justificado {{ text-align: justify; line-height: 1.4; }}
                     </style>
                     </head>
                     <body>
-                        <div id="hc">{logo_tag}</div>
-                        <div id="fc">Página <pdf:pagenumber> de <pdf:pagecount></div>
-                        <div class="tit">ANÁLISIS DE OFERTA: {datos.get('titulo_oferta')}</div>
-                        <div class="sec">1. DATOS INICIALES</div>
-                        <table><tr><th width="25%">CONCEPTO</th><th>DETALLE</th></tr>{html_filas}</table>
-                        <div class="sec">2. ALCANCE</div><ul>{"".join([f"<li>{i}</li>" for i in datos.get('alcance', [])])}</ul>
-                        <div class="sec">3. ANÁLISIS DE VIABILIDAD</div>
-                        <p style="color:#006600"><b>VENTAJAS (PROS):</b></p><ul>{"".join([f"<li>{i}</li>" for i in datos.get('pros', [])])}</ul>
-                        <p style="color:#990000"><b>RIESGOS (CONTRAS):</b></p><ul>{"".join([f"<li>{i}</li>" for i in datos.get('contras', [])])}</ul>
-                        <div class="sec">4. VALORACIÓN</div>
-                        <p style="font-size:14pt; color:#002C5F;"><b>PUNTUACIÓN: {datos.get('valoracion_puntuacion')}</b></p>
-                        <p style="text-align: justify; line-height: 1.4;">{datos.get('valoracion_texto')}</p>
+                        <div id="header_content">{etiqueta_logo}</div>
+                        
+                        <div id="footer_content">Página <pdf:pagenumber> de <pdf:pagecount></div>
+
+                        <div class="titulo-principal">ANÁLISIS DE OFERTA: {datos.get('titulo_oferta', '')}</div>
+                        
+                        <div class="seccion">1. DATOS INICIALES</div>
+                        <table>
+                            <tr><th width="20%">CONCEPTO</th><th>DETALLE</th></tr>
+                            {html_filas_tabla}
+                        </table>
+                        
+                        <div class="seccion">2. ALCANCE</div>
+                        <ul>
+                            {html_alcance}
+                        </ul>
+                        
+                        <div class="seccion">3. ANÁLISIS DE VIABILIDAD</div>
+                        
+                        <div class="pros">VENTAJAS (PROS):</div>
+                        <ul>
+                            {html_pros}
+                        </ul>
+                        
+                        <div class="contras">RIESGOS Y PENALIZACIONES (CONTRAS):</div>
+                        <ul>
+                            {html_contras}
+                        </ul>
+                        
+                        <div class="seccion">4. VALORACIÓN</div>
+                        <div class="nota">PUNTUACIÓN: {datos.get('valoracion_puntuacion', '')}</div>
+                        <div class="texto-justificado">{datos.get('valoracion_texto', '')}</div>
                     </body>
                     </html>
                     """
@@ -384,4 +474,6 @@ if check_password():
                     pisa.CreatePDF(html_final, dest=pdf_buf)
                     st.success("✅ Informe generado correctamente.")
                     st.download_button("📥 Descargar Informe Anerpro", data=pdf_buf.getvalue(), file_name=f"Analisis_{datetime.now().strftime('%Y%m%d')}.pdf", mime="application/pdf")
-                except Exception as e: st.error(f"Error en el proceso: {e}")
+                
+                except Exception as e: 
+                    st.error(f"Error en el proceso: {e}")
