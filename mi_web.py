@@ -12,62 +12,25 @@ import io
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="📡", layout="wide")
 
 # ==============================================================================
-# --- 2. CSS LIMPIO Y SEGURO ---
+# --- 2. CSS MÍNIMO Y SEGURO ---
 # ==============================================================================
 st.markdown(
     """
     <style>
-        :root { --coral-red: #FF4B4B; }
-        
-        /* Ocultar barra superior de Streamlit */
+        /* Ocultar barra superior de navegación de Streamlit */
         [data-testid="stSidebarNav"] { display: none !important; }
         
-        /* Subir el logo en la barra lateral */
+        /* Ajustar el logo para que quede pegado arriba */
         [data-testid="stSidebar"] img {
-            margin-top: -40px !important;
+            margin-top: -30px !important;
             margin-bottom: 20px !important;
         }
 
-        /* Título y Antena */
-        .radar-header {
+        /* Hacer que la barra lateral sea una columna flexible para bajar el botón */
+        [data-testid="stSidebarUserContent"] {
             display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        .radar-header h1 {
-            font-size: 2.8rem;
-            font-weight: 700;
-            color: #31333F;
-            margin: 0;
-            padding: 0;
-        }
-        
-        /* Pintar el texto de la primera pestaña de ROJO */
-        button[data-baseweb="tab"]:nth-child(1) p {
-            color: var(--coral-red) !important;
-            font-weight: 600 !important;
-            font-size: 1.1rem;
-        }
-        button[data-baseweb="tab"]:nth-child(2) p {
-            font-size: 1.1rem;
-        }
-
-        /* Botón primario rojo */
-        .stButton button[kind="primary"] {
-            background-color: var(--coral-red) !important;
-            color: white !important;
-            border: none !important;
-            padding: 0.5rem 2rem !important;
-            font-weight: 600 !important;
-        }
-        .stButton button[kind="primary"]:hover {
-            background-color: #e34343 !important;
-        }
-        
-        /* Botones de la barra lateral al 100% de ancho */
-        [data-testid="stSidebar"] .stButton button {
-            width: 100%;
+            flex-direction: column;
+            min-height: 90vh; 
         }
     </style>
     """,
@@ -86,7 +49,7 @@ def check_password():
     with col2: st.title("🔒 Acceso Anerpro")
     
     pwd = st.text_input("Contraseña corporativa:", type="password")
-    if st.button("Entrar"):
+    if st.button("Entrar", type="primary"):
         if pwd == st.secrets["PASSWORD_WEB"]:
             st.session_state["password_correct"] = True
             st.rerun()
@@ -149,36 +112,38 @@ if check_password():
             with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4, ensure_ascii=False)
         return hist, añadidas
 
-    # --- 6. BARRA LATERAL (Con método seguro para el botón) ---
+    # --- 6. BARRA LATERAL ---
     with st.sidebar:
         if os.path.exists("logo.png"): st.image("logo.png", width=140)
         
         st.divider()
         st.caption("⚙️ Mantenimiento")
-        if st.button("Vaciar Memoria (Reset)"):
+        if st.button("Vaciar Memoria (Reset)", use_container_width=True):
             if os.path.exists(ARCHIVO_HISTORIAL): os.remove(ARCHIVO_HISTORIAL)
             st.rerun()
             
-        # ESPACIADOR INVISIBLE INFALIBLE (Empuja el botón hacia abajo)
-        st.markdown("<div style='height: 45vh;'></div>", unsafe_allow_html=True)
+        # Este div vacío con flex-grow empuja todo lo que hay debajo hasta el final
+        st.markdown("<div style='flex-grow: 1;'></div>", unsafe_allow_html=True)
         
-        if st.button("Cerrar Sesión"):
+        if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state["password_correct"] = False
             st.rerun()
 
     # --- 7. CUERPO PRINCIPAL ---
-    # Título + Antena SVG
+    # Título + Antena Parabólica Profesional
     st.markdown(
         """
-        <div class="radar-header">
-            <svg width="55" height="55" viewBox="0 0 24 24" fill="none" stroke="#31333F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2.5 10.5a14.5 14.5 0 0 1 19 0"></path>
-                <path d="M12 11v10"></path>
-                <path d="M8 21h8"></path>
-                <circle cx="12" cy="7" r="2" fill="#FF4B4B" stroke="#FF4B4B"></circle>
-                <path d="M12 7v4"></path>
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#31333F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 10a7.31 7.31 0 0 0 10 10Z"></path>
+                <path d="m9 15 3-3"></path>
+                <path d="M17 13a6 6 0 0 0-6-6"></path>
+                <path d="M21 9a10 10 0 0 0-10-10"></path>
+                <circle cx="12" cy="12" r="2" fill="#FF4B4B" stroke="#FF4B4B"></circle>
+                <path d="M17 17v5"></path>
+                <path d="M21 22h-8"></path>
             </svg>
-            <h1>Radar de Licitaciones</h1>
+            <h1 style="margin: 0; font-size: 2.8rem; color: #31333F; font-weight: 700;">Radar de Licitaciones</h1>
         </div>
         """, unsafe_allow_html=True
     )
@@ -213,7 +178,7 @@ if check_password():
                 for c in columnas_ver:
                     if c not in df.columns: df[c] = "N/A"
                 st.dataframe(df[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
-            else: st.info("No hay novedades.")
+            else: st.info("No hay novedades interesantes en este momento.")
 
     with tab2:
         hist = cargar_y_limpiar_historial()
@@ -227,5 +192,5 @@ if check_password():
             
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer: df_hist[columnas_ver].to_excel(writer, index=False, sheet_name='Licitaciones')
-            st.download_button(label="📥 Descargar Excel", data=buffer.getvalue(), file_name="informe.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        else: st.info("El historial está vacío.")
+            st.download_button(label="📥 Descargar Excel", data=buffer.getvalue(), file_name="informe_licitaciones.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        else: st.info("El historial está vacío. Realiza una búsqueda en la otra pestaña.")
