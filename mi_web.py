@@ -136,14 +136,15 @@ if check_password():
             if m: return formatear_moneda(m.group(1).strip())
         return "Ver en PDF"
 
-    # NUEVA FUNCIÓN: Extraer fecha de cierre
+    # ESCÁNER DE FECHAS ARREGLADO (Más tolerante con el formato del Estado)
     def extraer_fecha_cierre(texto):
         if not texto: return "No indicada"
         texto_limpio = re.sub(r'<[^>]*>', ' ', texto)
+        # Hemos quitado la obligación de buscar ":" para que atrape la fecha siempre
         patrones = [
-            r"Fin de plazo de presentación de oferta[s]?:\s*(\d{2}/\d{2}/\d{4})",
-            r"Plazo de presentación de oferta[s]?:\s*(\d{2}/\d{2}/\d{4})",
-            r"Fecha límite de presentación:\s*(\d{2}/\d{2}/\d{4})"
+            r"Fin de plazo de presentación de oferta[s]?[^\d]*(\d{2}/\d{2}/\d{4})",
+            r"Plazo de presentación[^\d]*(\d{2}/\d{2}/\d{4})",
+            r"Fecha límite de presentación[^\d]*(\d{2}/\d{2}/\d{4})"
         ]
         for p in patrones:
             match = re.search(p, texto_limpio, re.IGNORECASE)
@@ -217,7 +218,6 @@ if check_password():
         """, unsafe_allow_html=True
     )
 
-    # Añadida la nueva columna "Fin Plazo"
     columnas_ver = ["Publicado", "Organismo", "Título", "Presupuesto", "Fin Plazo", "Palabras Detectadas", "Enlace Oficial"]
 
     # VISTA 1: BÚSQUEDA
@@ -229,7 +229,7 @@ if check_password():
             with st.spinner('Escaneando plataforma del Estado y filtrando fechas caducadas...'):
                 feed = feedparser.parse(URL_FEED)
                 encontradas = []
-                hoy = datetime.now().date() # Cogemos el día exacto en el que estamos
+                hoy = datetime.now().date() 
                 
                 for e in feed.entries:
                     res = e.summary if 'summary' in e else ""
@@ -237,20 +237,19 @@ if check_password():
                     coin = sorted(list(set([k.upper() for k in KEYWORDS if normalizar(k) in txt])))
                     
                     if coin:
-                        # 1. Extraemos la fecha límite
+                        # Extraemos la fecha límite
                         fecha_cierre_str = extraer_fecha_cierre(res)
                         es_valida = True
                         
-                        # 2. Comprobamos si está caducada
+                        # Comprobamos si está caducada
                         if fecha_cierre_str != "No indicada":
                             try:
                                 fecha_cierre_dt = datetime.strptime(fecha_cierre_str, "%d/%m/%Y").date()
                                 if fecha_cierre_dt < hoy:
-                                    es_valida = False # Está caducada, la descartamos
+                                    es_valida = False 
                             except:
-                                pass # Si hay error de formato, la mantenemos por precaución
+                                pass 
                         
-                        # 3. Si tiene palabras clave y NO está caducada, la guardamos
                         if es_valida:
                             org = "No detectado"
                             m = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", res, re.I | re.S)
@@ -264,7 +263,7 @@ if check_password():
                                 "Organismo": org, 
                                 "Título": e.title, 
                                 "Presupuesto": extraer_presupuesto(res), 
-                                "Fin Plazo": fecha_cierre_str, # Se añade el dato
+                                "Fin Plazo": fecha_cierre_str,
                                 "Palabras Detectadas": ", ".join(coin), 
                                 "Enlace Oficial": e.link
                             })
