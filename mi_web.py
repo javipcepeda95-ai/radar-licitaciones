@@ -25,9 +25,9 @@ st.markdown(
         /* Ocultar navegación nativa de Streamlit */
         [data-testid="stSidebarNav"] { display: none !important; }
         
-        /* Ajuste margen superior cuerpo principal */
+        /* Subir la cabecera del cuerpo principal */
         .block-container {
-            padding-top: 3rem !important; 
+            padding-top: 3.5rem !important; 
         }
 
         /* Estilo de Cabecera con Antena */
@@ -58,69 +58,60 @@ st.markdown(
             border-radius: 8px !important;
         }
 
-        /* --- CONFIGURACIÓN RADICAL SIDEBAR --- */
+        /* --- REDISEÑO TOTAL SIDEBAR --- */
         [data-testid="stSidebar"] {
             background-color: #fcfcfc;
         }
         
+        /* Eliminar padding superior para subir el logo al máximo */
         [data-testid="stSidebarContent"] {
             padding-top: 0rem !important;
-            position: relative !important;
         }
 
-        /* Logo: Arriba a la izquierda absoluto */
-        .logo-container-sidebar {
-            position: absolute;
-            top: 5px !important;
-            left: 10px !important;
-            z-index: 999;
+        /* Contenedor Logo: Arriba a la izquierda con raya divisoria */
+        .logo-box {
+            padding: 10px 0px 10px 15px;
+            border-bottom: 1px solid #e6e9ef;
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        /* --- COMPACTAR MENÚ Y RADIO --- */
+        /* Quitar margen superior del expander */
+        .st-expander {
+            margin-top: 0px !important;
         }
         
-        /* Espaciador para el contenido debajo del logo */
-        .sidebar-top-spacer {
-            height: 70px;
-        }
-
-        /* Raya divisoria entre logo y menu */
-        .sidebar-divider {
-            border-top: 1px solid #e6e9ef;
-            margin: 10px 0 20px 0;
-            width: 100%;
-        }
-
-        /* --- MINIMIZAR HUECOS EN EL MENÚ --- */
-        /* Eliminamos el espacio superior del contenido del expander */
+        /* Quitar padding interno del expander para pegar las opciones al título "Menu" */
         .st-expanderContent {
             padding-top: 0px !important;
             padding-bottom: 0px !important;
         }
         
-        /* Quitamos el margen superior del radio para pegarlo al encabezado "Menu" */
-        div[data-testid="stRadio"] {
-            margin-top: -15px !important;
-        }
-        
+        /* Eliminar huecos en el widget de Radio */
         div[data-testid="stRadio"] > div {
-            gap: 0px !important;
+            gap: 2px !important;
+            margin-top: -10px !important;
         }
 
-        /* Evitar cortes en los iconos y texto */
+        /* Ajuste de etiquetas para evitar cortes en iconos y texto */
         [data-testid="stSidebar"] [data-testid="stRadio"] label {
             overflow: visible !important;
             padding: 2px 0px !important;
             display: flex !important;
             align-items: center !important;
-            min-height: 25px !important;
+            min-height: 30px !important;
+            width: 100% !important;
         }
         
         [data-testid="stSidebar"] [data-testid="stRadio"] label p {
             font-size: 0.95rem !important;
             white-space: nowrap !important;
-            margin-left: 4px !important;
+            margin-left: 6px !important;
             margin-bottom: 0px !important;
         }
 
-        /* Estilo del expander Menu */
+        /* Estilo del encabezado "Menu" */
         .st-expanderHeader {
             font-weight: bold !important;
             color: #31333F !important;
@@ -129,12 +120,21 @@ st.markdown(
             background-color: white !important;
         }
 
-        /* --- BOTÓN CERRAR SESIÓN: ABAJO A LA DERECHA --- */
-        .logout-fixed-container {
+        /* --- BOTÓN CIERRE: ABAJO A LA DERECHA --- */
+        div.stButton > button:has(div:contains("Cerrar Sesión")) {
             position: fixed;
             bottom: 20px;
-            left: 200px; /* Ajuste para pegarlo a la derecha del sidebar */
-            z-index: 1000;
+            right: 15px; /* Dentro del ancho del sidebar */
+            width: auto !important;
+            padding: 0.4rem 1rem !important;
+            font-size: 0.85rem !important;
+            background-color: transparent !important;
+            color: #888 !important;
+            border: 1px solid #ddd !important;
+        }
+        div.stButton > button:has(div:contains("Cerrar Sesión")):hover {
+            border-color: var(--coral-red) !important;
+            color: var(--coral-red) !important;
         }
     </style>
     """,
@@ -163,7 +163,7 @@ Actúa como un Analista Experto en Contratación Pública. Contexto: ANERPRO es 
 ANALIZA y devuelve JSON: { "titulo_oferta": "...", "datos_initiales": [...], "alcance": [...], "pros": [...], "contras": [...], "valoracion_puntuacion": "...", "valoracion_texto": "..." }
 """
 
-# --- 3. SISTEMA DE SEGURIDAD (LOGO CENTRADO Y NUEVO TÍTULO) ---
+# --- 3. SISTEMA DE SEGURIDAD ---
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
@@ -197,7 +197,7 @@ if check_password():
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     KEYWORDS = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
 
-    # --- 5. FUNCIONES DE EXTRACCIÓN ---
+    # --- 5. FUNCIONES DE EXTRACCIÓN (Lógica de Código Antiguo) ---
     def normalizar(t): return ''.join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn') if t else ""
     
     def formatear_moneda(v):
@@ -240,36 +240,26 @@ if check_password():
                 except: return []
         return []
 
-    # --- 6. BARRA LATERAL (AJUSTES DE DISEÑO SOLICITADOS) ---
+    # --- 6. BARRA LATERAL (LOGO ARRIBA Y MENU COMPACTO) ---
     with st.sidebar:
-        # Logo arriba a la izquierda
-        st.markdown('<div class="logo-container-sidebar">', unsafe_allow_html=True)
+        # Logo arriba con línea divisoria
+        st.markdown('<div class="logo-box">', unsafe_allow_html=True)
         if os.path.exists("logo.png"): 
             st.image("logo.png", width=120)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Espaciador para no pisar el logo
-        st.markdown('<div class="sidebar-top-spacer"></div>', unsafe_allow_html=True)
-        
-        # Raya divisoria
-        st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
-        
-        # El "Menu" desplegable pegado a las opciones
+        # Expander "Menu" sin huecos internos
         with st.expander("Menu", expanded=False):
             opcion = st.radio(
-                "",
+                "Navegación:",
                 ["🔍 Búsqueda Licitaciones", "📁 Archivo e Informes", "📄 Generación Informes"],
                 label_visibility="collapsed"
             )
         
-        # Contenedor para el botón de cierre abajo a la derecha
-        # Usamos un truco de columnas dentro de un bloque absoluto
-        st.markdown('<div style="height: 40vh;"></div>', unsafe_allow_html=True)
-        col_side1, col_side2 = st.columns([1, 2.5])
-        with col_side2:
-            if st.button("Cerrar Sesión", use_container_width=True):
-                st.session_state["password_correct"] = False
-                st.rerun()
+        # Botón de cierre (fijado por CSS abajo a la derecha del sidebar)
+        if st.button("Cerrar Sesión"):
+            st.session_state["password_correct"] = False
+            st.rerun()
 
     # Configuración de tabla
     config_tabla = {
@@ -369,7 +359,6 @@ if check_password():
                     
                     datos = json.loads(response.text.strip().replace("```json", "").replace("```", ""))
                     
-                    # MAQUETACIÓN PREMIUM
                     html_filas = "".join([f"<tr><td><strong>{f['concepto']}</strong></td><td>{f['detalle']}</td></tr>" for f in datos.get('datos_initiales', [])])
                     ruta_logo = os.path.abspath("logo.png")
                     logo_tag = f'<img src="{ruta_logo}" height="25" />' if os.path.exists(ruta_logo) else ''
