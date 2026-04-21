@@ -85,7 +85,6 @@ if check_password():
         if st.button("Vaciar Memoria (Reset)"):
             if os.path.exists(ARCHIVO_HISTORIAL):
                 os.remove(ARCHIVO_HISTORIAL)
-                st.success("Memoria vaciada. Dale ahora a Buscar.")
                 st.rerun()
 
     st.title("Radar de Licitaciones 🏢")
@@ -93,7 +92,7 @@ if check_password():
 
     with tab1:
         if st.button("Actualizar y Buscar", type="primary"):
-            with st.spinner('Extrayendo datos de la plataforma...'):
+            with st.spinner('Procesando datos del Estado...'):
                 feed = feedparser.parse(URL_FEED)
                 ofertas_encontradas = []
                 for entrada in feed.entries:
@@ -106,17 +105,18 @@ if check_password():
                         # --- BÚSQUEDA ROBUSTA DEL ORGANISMO ---
                         organismo = "No detectado"
                         
-                        # 1. Intentar por etiquetas estándar
-                        if entrada.get('author'):
-                            organismo = entrada.author
-                        elif entrada.get('author_detail'):
-                            organismo = entrada.author_detail.get('name', "No detectado")
+                        # 1. Intentar extraer del resumen con un Regex ultra-flexible
+                        # Buscamos después de "Organo de Contratacion:" hasta encontrar un ";" o el final de la línea
+                        match = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", resumen_raw, re.IGNORECASE | re.DOTALL)
+                        if match:
+                            organismo = match.group(1).strip()
                         
-                        # 2. Si sigue siendo desconocido, buscar dentro del resumen (patrón común en PLACSP)
+                        # 2. Si falla el resumen, mirar etiquetas de autor
                         if organismo == "No detectado" or "Plataforma" in organismo:
-                            match = re.search(r"Organo de Contratacion: (.*?);", resumen_raw)
-                            if match:
-                                organismo = match.group(1).strip()
+                            if entrada.get('author'):
+                                organismo = entrada.author
+                            elif entrada.get('author_detail'):
+                                organismo = entrada.author_detail.get('name', "No detectado")
 
                         try: fecha_pub = datetime(*entrada.published_parsed[:3]).strftime("%d/%m/%Y")
                         except: fecha_pub = datetime.now().strftime("%d/%m/%Y")
@@ -131,12 +131,12 @@ if check_password():
 
             historial, nuevas = guardar_en_historial(ofertas_encontradas)
             if nuevas > 0:
-                st.success(f"¡Se han encontrado {nuevas} licitaciones interesantes!")
+                st.success(f"¡Se han detectado {nuevas} oportunidades!")
                 df_nuevas = pd.DataFrame(historial[-nuevas:])
                 columnas = ["Publicado", "Organismo", "Título", "Palabras Detectadas", "Enlace Oficial"]
                 st.dataframe(df_nuevas[columnas], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             else:
-                st.info("No hay nuevas licitaciones desde la última vez.")
+                st.info("Sin novedades interesantes en este momento.")
 
     with tab2:
         historial = cargar_y_limpiar_historial()
@@ -147,4 +147,4 @@ if check_password():
                 if c not in df_historial.columns: df_historial[c] = "N/A"
             st.dataframe(df_historial[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
         else:
-            st.info("El historial está vacío.")
+            st.info("Historial vacío.")
