@@ -6,9 +6,10 @@ from datetime import datetime, timedelta
 import json
 import os
 import re
+import io
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
-st.set_page_config(page_title="Radar de Licitaciones", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="Radar Pro Licitaciones", page_icon="🤖", layout="wide")
 
 def check_password():
     if "password_correct" not in st.session_state:
@@ -41,6 +42,14 @@ if check_password():
     def normalizar_texto(texto):
         if not texto: return ""
         return ''.join(c for c in unicodedata.normalize('NFD', texto.lower()) if unicodedata.category(c) != 'Mn')
+
+    def extraer_presupuesto(texto):
+        # Busca patrones numéricos seguidos de EUR, € o euros
+        patron = r"([\d\.]+,\d{2})\s*(?:EUR|€|euros)"
+        match = re.search(patron, texto, re.IGNORECASE)
+        if match:
+            return match.group(1) + " €"
+        return "Ver en PDF"
 
     def cargar_y_limpiar_historial():
         if os.path.exists(ARCHIVO_HISTORIAL):
@@ -88,35 +97,23 @@ if check_password():
                 st.rerun()
 
     st.title("Radar de Licitaciones 🏢")
-    tab1, tab2 = st.tabs(["🔍 Buscar Nuevas", "📁 Archivo (5 días)"])
+    tab1, tab2 = st.tabs(["🔍 Buscar Nuevas", "📁 Archivo e Informes"])
 
     with tab1:
-        if st.button("Actualizar y Buscar", type="primary"):
-            with st.spinner('Procesando datos del Estado...'):
+        if st.button("Actualizar y Buscar Ahora", type="primary"):
+            with st.spinner('Escaneando plataforma...'):
                 feed = feedparser.parse(URL_FEED)
                 ofertas_encontradas = []
                 for entrada in feed.entries:
                     resumen_raw = entrada.summary if 'summary' in entrada else ""
                     texto_completo = normalizar_texto(entrada.title + " " + resumen_raw)
-                    
                     coincidencias = sorted(list(set([kw.upper() for kw in KEYWORDS if normalizar_texto(kw) in texto_completo])))
                     
                     if coincidencias:
-                        # --- BÚSQUEDA ROBUSTA DEL ORGANISMO ---
                         organismo = "No detectado"
-                        
-                        # 1. Intentar extraer del resumen con un Regex ultra-flexible
-                        # Buscamos después de "Organo de Contratacion:" hasta encontrar un ";" o el final de la línea
-                        match = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", resumen_raw, re.IGNORECASE | re.DOTALL)
-                        if match:
-                            organismo = match.group(1).strip()
-                        
-                        # 2. Si falla el resumen, mirar etiquetas de autor
-                        if organismo == "No detectado" or "Plataforma" in organismo:
-                            if entrada.get('author'):
-                                organismo = entrada.author
-                            elif entrada.get('author_detail'):
-                                organismo = entrada.author_detail.get('name', "No detectado")
+                        match_org = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", resumen_raw, re.I | re.S)
+                        if match_org: organismo = match_org.group(1).strip()
+                        elif entrada.get('author'): organismo = entrada.author
 
                         try: fecha_pub = datetime(*entrada.published_parsed[:3]).strftime("%d/%m/%Y")
                         except: fecha_pub = datetime.now().strftime("%d/%m/%Y")
@@ -124,27 +121,44 @@ if check_password():
                         ofertas_encontradas.append({
                             "Publicado": fecha_pub, 
                             "Organismo": organismo,
-                            "Título": entrada.title, 
+                            "Título": entrada.title,
+                            "Presupuesto": extraer_presupuesto(resumen_raw),
                             "Palabras Detectadas": ", ".join(coincidencias), 
                             "Enlace Oficial": entrada.link
                         })
 
             historial, nuevas = guardar_en_historial(ofertas_encontradas)
             if nuevas > 0:
-                st.success(f"¡Se han detectado {nuevas} oportunidades!")
+                st.success(f"¡Detectadas {nuevas} nuevas oportunidades!")
                 df_nuevas = pd.DataFrame(historial[-nuevas:])
-                columnas = ["Publicado", "Organismo", "Título", "Palabras Detectadas", "Enlace Oficial"]
+                columnas = ["Publicado", "Organismo", "Título", "Presupuesto", "Palabras Detectadas", "Enlace Oficial"]
                 st.dataframe(df_nuevas[columnas], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             else:
-                st.info("Sin novedades interesantes en este momento.")
+                st.info("No hay novedades interesantes.")
 
     with tab2:
         historial = cargar_y_limpiar_historial()
         if historial:
             df_historial = pd.DataFrame(list(reversed(historial)))
-            columnas_ver = ["Publicado", "Organismo", "Título", "Palabras Detectadas", "Enlace Oficial"]
-            for c in columnas_ver: 
-                if c not in df_historial.columns: df_historial[c] = "N/A"
+            columnas_ver = ["Publicado", "Organismo", "Título", "Presupuesto", "Palabras Detectadas", "Enlace Oficial"]
+            
+            # Buscador en historial
+            busqueda = st.text_input("Filtrar historial por nombre o título:")
+            if busqueda:
+                df_historial = df_historial[df_historial.apply(lambda row: busqueda.lower() in row.astype(str).str.lower().str.cat(), axis=1)]
+
             st.dataframe(df_historial[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
+            
+            # --- BOTÓN DE EXCEL ---
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_historial[columnas_ver].to_excel(writer, index=False, sheet_name='Licitaciones')
+            
+            st.download_button(
+                label="📥 Descargar este listado en Excel",
+                data=buffer.getvalue(),
+                file_name=f"informe_licitaciones_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
         else:
             st.info("Historial vacío.")
