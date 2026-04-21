@@ -157,7 +157,7 @@ if check_password():
         with st.expander("📡 Radar de Licitaciones", expanded=True):
             opcion_navegacion = st.radio(
                 "Menú", 
-                ["🔍 Búsqueda de Licitaciones", "📁 Archivos e Informes"],
+                ["🔍 Búsqueda Licitaciones", "📁 Archivos e Informes"],
                 label_visibility="collapsed"
             )
             
@@ -191,8 +191,8 @@ if check_password():
 
     # --- LÓGICA DE VISTAS BASADA EN EL MENÚ LATERAL ---
     
-    # VISTA 1: BÚSQUEDA
-    if opcion_navegacion == "🔍 Búsqueda de Licitaciones":
+    # VISTA 1: BÚSQUEDA (Condición ajustada sin el "de")
+    if opcion_navegacion == "🔍 Búsqueda Licitaciones":
         st.subheader("Búsqueda en Tiempo Real")
         st.write("Pulsa el botón para escanear las últimas publicaciones de la Plataforma de Contratación del Estado.")
         
@@ -239,7 +239,7 @@ if check_password():
             
             st.write("---") # Línea separadora
             
-            # BOTONES JUNTOS AL FINAL DE LA PÁGINA (CON EMOJIS RESTAURADOS)
+            # BOTONES JUNTOS AL FINAL DE LA PÁGINA
             st.markdown('<div class="action-buttons">', unsafe_allow_html=True)
             col1, col2, col3 = st.columns([2, 2, 4]) 
             
@@ -255,4 +255,4 @@ if check_password():
             st.markdown('</div>', unsafe_allow_html=True)
             
         else: 
-            st.info("El historial está vacío. Ve a la sección 'Búsqueda de Licitaciones' para escanear.")
+            st.info("El historial está vacío. Ve a la sección 'Búsqueda Licitaciones' para escanear.")
