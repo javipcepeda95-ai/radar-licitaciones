@@ -11,40 +11,38 @@ import io
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="🤖", layout="wide")
 
-# --- TRUCO CSS "ARTILLERÍA PESADA" ---
+# --- TRUCO CSS: AJUSTE DE ALTURA DEL BOTÓN ---
 st.markdown(
     """
     <style>
         /* 1. Eliminamos el espacio superior de Streamlit */
         [data-testid="stSidebarNav"] {display: none !important;}
         
-        /* 2. Forzamos la barra lateral a ocupar toda la pantalla */
+        /* 2. Quitamos el padding superior de la sidebar */
         section[data-testid="stSidebar"] .st-emotion-cache-6qob1r {
             padding-top: 0rem !important;
         }
 
-        /* 3. El contenedor principal de la sidebar se convierte en un Flexbox */
+        /* 3. Convertimos la sidebar en un contenedor elástico */
         [data-testid="stSidebarUserContent"] > div:first-child {
             display: flex !important;
             flex-direction: column !important;
-            /* Calculamos la altura restando los márgenes internos */
-            min-height: calc(100vh - 40px) !important;
+            min-height: calc(100vh - 20px) !important;
         }
 
-        /* 4. Ajuste del Logo para que suba al límite */
+        /* 4. Ajuste del Logo arriba */
         [data-testid="stSidebar"] img {
             margin-top: -45px !important;
             margin-bottom: 0px !important;
         }
 
-        /* 5. EL TRUCO DEFINITIVO: 
-           Targeteamos el último contenedor de bloque vertical y le damos margen auto arriba */
+        /* 5. EL AJUSTE: Empujamos el botón abajo pero con un margen de 80px para que suba */
         [data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"] > div:last-child {
             margin-top: auto !important;
-            padding-bottom: 10px !important;
+            padding-bottom: 80px !important; /* <--- Aumentado para que no esté tan abajo */
         }
         
-        /* Estilo de botones para que sean uniformes */
+        /* Botones anchos y estéticos */
         .stButton button {
             width: 100%;
         }
@@ -139,21 +137,17 @@ if check_password():
 
     # --- 4. BARRA LATERAL ---
     with st.sidebar:
-        # LOGO (Arriba del todo)
         if os.path.exists("logo.png"):
             st.image("logo.png", width=130)
         
         st.divider()
         
-        # SECCIÓN MEDIA
         st.caption("⚙️ Mantenimiento")
         if st.button("Vaciar Memoria (Reset)"):
             if os.path.exists(ARCHIVO_HISTORIAL):
                 os.remove(ARCHIVO_HISTORIAL)
                 st.rerun()
         
-        # BOTÓN CERRAR SESIÓN 
-        # Al ser el último elemento del bloque sidebar, el CSS lo empujará al fondo
         if st.button("Cerrar Sesión"):
             st.session_state["password_correct"] = False
             st.rerun()
