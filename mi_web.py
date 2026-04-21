@@ -29,7 +29,6 @@ if check_password():
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     DIAS_RETENCION = 5
     
-    # --- TU LISTA DE PALABRAS CLAVE SELECCIONADA ---
     KEYWORDS = [
         "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", 
         "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", 
@@ -52,7 +51,12 @@ if check_password():
             for item in datos:
                 try:
                     fecha_str = item.get("Detectado el") or item.get("Detectado")
-                    fecha_item = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M:%S") if "-" in fecha_str else datetime.strptime(fecha_str, "%d/%m/%Y %H:%M")
+                    # Soporte para ambos formatos de fecha
+                    if "-" in fecha_str:
+                        fecha_item = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M:%S")
+                    else:
+                        fecha_item = datetime.strptime(fecha_str, "%d/%m/%Y %H:%M")
+                        
                     if fecha_item >= fecha_limite:
                         if "Publicado" not in item: item["Publicado"] = "Anterior"
                         if "Organismo" not in item: item["Organismo"] = "N/A"
@@ -74,10 +78,23 @@ if check_password():
             json.dump(historial_actual, f, indent=4, ensure_ascii=False)
         return historial_actual, añadidas
 
+    # --- INTERFAZ ---
     st.title("Radar de Licitaciones 🏢")
-    if st.sidebar.button("Cerrar Sesión"):
-        st.session_state["password_correct"] = False
-        st.rerun()
+    
+    # BARRA LATERAL CON OPCIONES DE SESIÓN Y MANTENIMIENTO
+    with st.sidebar:
+        st.header("Opciones")
+        if st.button("Cerrar Sesión"):
+            st.session_state["password_correct"] = False
+            st.rerun()
+        
+        st.divider()
+        st.warning("Zona de mantenimiento")
+        if st.button("Vaciar Memoria (Reset)"):
+            if os.path.exists(ARCHIVO_HISTORIAL):
+                os.remove(ARCHIVO_HISTORIAL)
+                st.success("Memoria borrada. La próxima búsqueda leerá todo de nuevo.")
+                st.rerun()
 
     tab1, tab2 = st.tabs(["🔍 Buscar Nuevas", "📁 Archivo (5 días)"])
 
@@ -92,13 +109,15 @@ if check_password():
                     if coincidencias:
                         try: fecha_pub = datetime(*entrada.published_parsed[:3]).strftime("%d/%m/%Y")
                         except: fecha_pub = datetime.now().strftime("%d/%m/%Y")
+                        
+                        # Extraer Organismo (Autor)
                         organismo = entrada.author if 'author' in entrada else "Desconocido"
 
                         ofertas_encontradas.append({
                             "Publicado": fecha_pub, 
                             "Organismo": organismo,
                             "Título": entrada.title, 
-                            "Palabras Detectadas": ", ".join(list(set(coincidencias))), # set para no repetir si coinciden con/sin tilde
+                            "Palabras Detectadas": ", ".join(list(set(coincidencias))), 
                             "Enlace Oficial": entrada.link
                         })
 
@@ -111,13 +130,18 @@ if check_password():
                              column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, 
                              hide_index=True, use_container_width=True)
             else:
-                st.info("Sin novedades interesantes.")
+                st.info("No hay novedades.")
 
     with tab2:
         historial = cargar_y_limpiar_historial()
         if historial:
             df_historial = pd.DataFrame(list(reversed(historial)))
             columnas_ver = ["Publicado", "Organismo", "Título", "Palabras Detectadas", "Enlace Oficial"]
+            # Nos aseguramos de que el DataFrame tenga todas las columnas antes de mostrarlo
+            for col in columnas_ver:
+                if col not in df_historial.columns:
+                    df_historial[col] = "N/A"
+            
             st.dataframe(df_historial[columnas_ver], 
                          column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, 
                          hide_index=True, use_container_width=True)
