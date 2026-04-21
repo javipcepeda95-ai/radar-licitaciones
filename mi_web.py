@@ -11,39 +11,38 @@ import io
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="🤖", layout="wide")
 
-# --- TRUCO CSS DEFINITIVO (MÁS AGRESIVO) ---
+# --- TRUCO CSS DEFINITIVO (SUBIR LOGO Y BAJAR BOTÓN) ---
 st.markdown(
     """
     <style>
-        /* 1. Eliminamos el espacio de navegación superior y paddings de la sidebar */
-        [data-testid="stSidebarNav"] {
-            display: none !important;
+        /* 1. Eliminar navegación y huecos superiores */
+        [data-testid="stSidebarNav"] {display: none !important;}
+        
+        /* 2. Configurar la sidebar como un contenedor flexible de altura completa */
+        section[data-testid="stSidebar"] > div:first-child {
+            padding-top: 0rem !important;
         }
         
         [data-testid="stSidebarUserContent"] {
-            padding-top: 1rem !important; /* Un pequeño margen de seguridad */
             display: flex !important;
             flex-direction: column !important;
-            height: 96vh !important;
+            height: 95vh !important; /* Altura casi total de la ventana */
         }
 
-        /* 2. Forzamos a que el primer elemento (el logo) no tenga margen arriba */
-        [data-testid="stSidebarUserContent"] div:first-child {
-            margin-top: 0px !important;
-        }
-
-        /* 3. Subimos la imagen del logo específicamente */
+        /* 3. Ajuste del Logo para que suba al máximo */
         [data-testid="stSidebar"] img {
-            margin-top: -40px !important;
+            margin-top: -35px !important;
+            margin-bottom: 0px !important;
         }
 
-        /* 4. Empujamos el ÚLTIMO elemento (botón cerrar sesión) al fondo */
-        /* Buscamos el contenedor del botón de abajo */
-        div[data-testid="stVerticalBlock"] > div:last-child {
+        /* 4. EL TRUCO: Empujar el último bloque de la sidebar hacia abajo */
+        /* Seleccionamos el último contenedor de elementos en la sidebar */
+        [data-testid="stSidebarUserContent"] div.stVerticalBlock > div:last-child {
             margin-top: auto !important;
+            padding-bottom: 20px !important;
         }
-
-        /* Estilo para los botones de la sidebar para que no se peguen a los bordes */
+        
+        /* Estética de los botones para que ocupen todo el ancho */
         .stButton button {
             width: 100%;
         }
@@ -136,9 +135,9 @@ if check_password():
                 json.dump(historial_actual, f, indent=4, ensure_ascii=False)
         return historial_actual, añadidas
 
-    # --- 4. BARRA LATERAL (Logo arriba y Botón abajo) ---
+    # --- 4. BARRA LATERAL ---
     with st.sidebar:
-        # LOGO (Primer elemento)
+        # LOGO (Arriba)
         if os.path.exists("logo.png"):
             st.image("logo.png", width=140)
         
@@ -151,7 +150,8 @@ if check_password():
                 os.remove(ARCHIVO_HISTORIAL)
                 st.rerun()
         
-        # BOTÓN CERRAR SESIÓN (Será empujado al fondo por el CSS)
+        # BOTÓN CERRAR SESIÓN (El CSS lo empujará al fondo)
+        # Lo ponemos al final de la sidebar
         if st.button("Cerrar Sesión"):
             st.session_state["password_correct"] = False
             st.rerun()
