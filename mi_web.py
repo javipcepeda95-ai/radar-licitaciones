@@ -46,14 +46,18 @@ st.markdown(
             gap: 15px;
             margin-bottom: 30px;
             border-bottom: 1px solid #eee;
+            padding-top: 10px;
             padding-bottom: 15px;
         }
-        .radar-header h1 {
+        
+        /* TRUCO: Usamos una clase en lugar de <h1> para evitar que Streamlit lo corte */
+        .radar-title {
             font-size: 2.8rem;
             font-weight: 700;
             color: #31333F;
             margin: 0;
             padding: 0;
+            line-height: 1.4; /* Espacio de sobra para que no se corte por arriba */
         }
 
         /* Botón rojo corporativo (Actualizar / Entrar) */
@@ -83,33 +87,26 @@ def check_password():
         st.session_state["password_correct"] = False
     if st.session_state["password_correct"]: return True
     
-    # Damos un poco de espacio por arriba para que no quede pegado al techo
     st.write("")
     st.write("")
     st.write("")
     
-    # Creamos 3 columnas. La del medio (col2) es donde irá nuestro contenido.
-    # Al hacerla estrecha (proporción 1, 1.2, 1), el cajetín será más pequeño.
     col1, col2, col3 = st.columns([1, 1.2, 1])
     
     with col2:
-        # Logo centrado
         logo_col1, logo_col2, logo_col3 = st.columns([1, 2, 1])
         with logo_col2:
             if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
             
-        # Título centrado
         st.markdown("<h3 style='text-align: center; color: #31333F; margin-top: 10px; margin-bottom: 30px; font-weight: 600;'>Acceso al Buscador de Licitaciones</h3>", unsafe_allow_html=True)
         
-        # El formulario es la clave para que funcione la tecla "Enter"
         with st.form("login_form"):
             pwd = st.text_input(
                 "Contraseña corporativa:", 
                 type="password", 
-                label_visibility="collapsed", # Ocultamos la etiqueta de arriba
-                placeholder="Introduce la contraseña corporativa..." # Texto fantasma
+                label_visibility="collapsed",
+                placeholder="Introduce la contraseña corporativa..." 
             )
-            # El botón ocupa todo el ancho de nuestra pequeña columna central
             enviado = st.form_submit_button("Entrar", use_container_width=True)
             
             if enviado:
@@ -176,14 +173,12 @@ if check_password():
             with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4, ensure_ascii=False)
         return hist, añadidas
 
-    # --- 6. BARRA LATERAL (NAVEGACIÓN) ---
+    # --- 6. BARRA LATERAL ---
     with st.sidebar:
-        # Logo
         if os.path.exists("logo.png"): st.image("logo.png", width=140)
         
         st.divider()
         
-        # Pestaña desplegable de navegación
         with st.expander("📡 Radar de Licitaciones", expanded=True):
             opcion_navegacion = st.radio(
                 "Menú", 
@@ -191,16 +186,14 @@ if check_password():
                 label_visibility="collapsed"
             )
             
-        # ESPACIADOR INVISIBLE para empujar el botón de Cerrar Sesión al fondo
         st.markdown("<div style='height: 55vh;'></div>", unsafe_allow_html=True)
         
-        # Cerrar Sesión
         if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state["password_correct"] = False
             st.rerun()
 
     # --- 7. CUERPO PRINCIPAL ---
-    # Icono de Radar de Pantalla
+    # Fíjate que ahora usamos <div class="radar-title"> en lugar de <h1>
     st.markdown(
         """
         <div class="radar-header">
@@ -212,15 +205,13 @@ if check_password():
                 <line x1="12" y1="12" x2="19" y2="5" stroke="#FF4B4B" stroke-width="2"></line>
                 <circle cx="12" cy="12" r="2" fill="#FF4B4B" stroke="#FF4B4B"></circle>
             </svg>
-            <h1>Radar de Licitaciones</h1>
+            <div class="radar-title">Radar de Licitaciones</div>
         </div>
         """, unsafe_allow_html=True
     )
 
     columnas_ver = ["Publicado", "Organismo", "Título", "Presupuesto", "Palabras Detectadas", "Enlace Oficial"]
 
-    # --- LÓGICA DE VISTAS BASADA EN EL MENÚ LATERAL ---
-    
     # VISTA 1: BÚSQUEDA
     if opcion_navegacion == "🔍 Búsqueda Licitaciones":
         st.subheader("Búsqueda en Tiempo Real")
@@ -267,9 +258,8 @@ if check_password():
             
             st.dataframe(df_hist[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             
-            st.write("---") # Línea separadora
+            st.write("---") 
             
-            # BOTONES JUNTOS AL FINAL DE LA PÁGINA
             st.markdown('<div class="action-buttons">', unsafe_allow_html=True)
             col1, col2, col3 = st.columns([2, 2, 4]) 
             
