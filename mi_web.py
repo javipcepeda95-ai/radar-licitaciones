@@ -11,33 +11,41 @@ import io
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="🤖", layout="wide")
 
-# --- TRUCO CSS DEFINITIVO: LOGO ARRIBA Y SOLO EL BOTÓN DE CIERRE ABAJO ---
+# --- TRUCO CSS DEFINITIVO (MÁS AGRESIVO) ---
 st.markdown(
     """
     <style>
-        /* 1. Subir el logo al extremo superior */
-        [data-testid="stSidebar"] [data-testid="stImage"] {
-            margin-top: -50px !important;
-            margin-left: -10px !important;
-        }
-
-        /* 2. Configurar la barra lateral como un contenedor flexible */
-        [data-testid="stSidebarUserContent"] {
-            display: flex;
-            flex-direction: column;
-            height: 95vh;
-            padding-top: 0rem !important;
-        }
-
-        /* 3. Empujar SOLO el último elemento (Cerrar Sesión) al fondo */
-        [data-testid="stSidebarUserContent"] > div:last-child {
-            margin-top: auto !important;
-            padding-bottom: 20px;
-        }
-
-        /* 4. Quitar espacios vacíos que genera Streamlit arriba */
+        /* 1. Eliminamos el espacio de navegación superior y paddings de la sidebar */
         [data-testid="stSidebarNav"] {
-            display: none;
+            display: none !important;
+        }
+        
+        [data-testid="stSidebarUserContent"] {
+            padding-top: 1rem !important; /* Un pequeño margen de seguridad */
+            display: flex !important;
+            flex-direction: column !important;
+            height: 96vh !important;
+        }
+
+        /* 2. Forzamos a que el primer elemento (el logo) no tenga margen arriba */
+        [data-testid="stSidebarUserContent"] div:first-child {
+            margin-top: 0px !important;
+        }
+
+        /* 3. Subimos la imagen del logo específicamente */
+        [data-testid="stSidebar"] img {
+            margin-top: -40px !important;
+        }
+
+        /* 4. Empujamos el ÚLTIMO elemento (botón cerrar sesión) al fondo */
+        /* Buscamos el contenedor del botón de abajo */
+        div[data-testid="stVerticalBlock"] > div:last-child {
+            margin-top: auto !important;
+        }
+
+        /* Estilo para los botones de la sidebar para que no se peguen a los bordes */
+        .stButton button {
+            width: 100%;
         }
     </style>
     """,
@@ -51,7 +59,7 @@ def check_password():
     if st.session_state["password_correct"]: return True
     
     st.title("🔒 Acceso Corporativo")
-    password_input = st.text_input("Introduce la contraseña:", type="password")
+    password_input = st.text_input("Contraseña:", type="password")
     if st.button("Entrar"):
         if password_input == st.secrets["PASSWORD_WEB"]:
             st.session_state["password_correct"] = True
@@ -123,25 +131,27 @@ if check_password():
                 o["Detectado el"] = datetime.now().strftime("%d/%m/%Y %H:%M")
                 historial_actual.append(o)
                 añadidas += 1
-        with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f:
-            json.dump(historial_actual, f, indent=4, ensure_ascii=False)
+        if añadidas > 0:
+            with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f:
+                json.dump(historial_actual, f, indent=4, ensure_ascii=False)
         return historial_actual, añadidas
 
-    # --- 4. BARRA LATERAL ---
+    # --- 4. BARRA LATERAL (Logo arriba y Botón abajo) ---
     with st.sidebar:
-        # LOGO (Se mantendrá arriba por orden de código)
+        # LOGO (Primer elemento)
         if os.path.exists("logo.png"):
-            st.image("logo.png", width=120)
-            st.divider()
+            st.image("logo.png", width=140)
         
-        # SECCIÓN MANTENIMIENTO (Se queda arriba, debajo del logo)
+        st.divider()
+        
+        # MANTENIMIENTO (Centro)
         st.caption("⚙️ Mantenimiento")
         if st.button("Vaciar Memoria (Reset)"):
             if os.path.exists(ARCHIVO_HISTORIAL):
                 os.remove(ARCHIVO_HISTORIAL)
                 st.rerun()
-
-        # CIERRE DE SESIÓN (El CSS lo empujará abajo al ser el último elemento)
+        
+        # BOTÓN CERRAR SESIÓN (Será empujado al fondo por el CSS)
         if st.button("Cerrar Sesión"):
             st.session_state["password_correct"] = False
             st.rerun()
@@ -171,7 +181,7 @@ if check_password():
 
             historial, nuevas = guardar_en_historial(encontradas)
             if nuevas > 0:
-                st.success(f"¡Se han detectado {nuevas} nuevas!")
+                st.success(f"¡Detectadas {nuevas} nuevas!")
                 df = pd.DataFrame(historial[-nuevas:])
                 st.dataframe(df[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             else: st.info("No hay novedades.")
