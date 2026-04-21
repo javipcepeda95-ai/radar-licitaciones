@@ -47,7 +47,10 @@ st.markdown(
             font-weight: 700;
             color: #31333F;
             margin: 0;
-            padding: 0;
+            /* Solución al texto cortado por arriba: */
+            padding-top: 10px; 
+            padding-bottom: 5px;
+            line-height: 1.2; 
         }
 
         /* Botón rojo corporativo (Actualizar) */
@@ -146,7 +149,7 @@ if check_password():
             with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4, ensure_ascii=False)
         return hist, añadidas
 
-    # --- 6. BARRA LATERAL (NAVEGACIÓN CON EMOJIS) ---
+    # --- 6. BARRA LATERAL (NAVEGACIÓN) ---
     with st.sidebar:
         # Logo
         if os.path.exists("logo.png"): st.image("logo.png", width=140)
@@ -191,7 +194,7 @@ if check_password():
 
     # --- LÓGICA DE VISTAS BASADA EN EL MENÚ LATERAL ---
     
-    # VISTA 1: BÚSQUEDA (Condición ajustada sin el "de")
+    # VISTA 1: BÚSQUEDA
     if opcion_navegacion == "🔍 Búsqueda Licitaciones":
         st.subheader("Búsqueda en Tiempo Real")
         st.write("Pulsa el botón para escanear las últimas publicaciones de la Plataforma de Contratación del Estado.")
