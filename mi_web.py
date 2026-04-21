@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import json
 import os
+import re
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Radar de Licitaciones", page_icon="🤖", layout="wide")
@@ -84,6 +85,7 @@ if check_password():
         if st.button("Vaciar Memoria (Reset)"):
             if os.path.exists(ARCHIVO_HISTORIAL):
                 os.remove(ARCHIVO_HISTORIAL)
+                st.success("Memoria vaciada. Dale ahora a Buscar.")
                 st.rerun()
 
     st.title("Radar de Licitaciones 🏢")
@@ -91,21 +93,31 @@ if check_password():
 
     with tab1:
         if st.button("Actualizar y Buscar", type="primary"):
-            with st.spinner('Escaneando plataforma...'):
+            with st.spinner('Extrayendo datos de la plataforma...'):
                 feed = feedparser.parse(URL_FEED)
                 ofertas_encontradas = []
                 for entrada in feed.entries:
-                    texto_completo = normalizar_texto(entrada.title + " " + (entrada.summary if 'summary' in entrada else ""))
-                    coincidencias = [kw.upper() for kw in KEYWORDS if normalizar_texto(kw) in texto_completo]
+                    resumen_raw = entrada.summary if 'summary' in entrada else ""
+                    texto_completo = normalizar_texto(entrada.title + " " + resumen_raw)
+                    
+                    coincidencias = sorted(list(set([kw.upper() for kw in KEYWORDS if normalizar_texto(kw) in texto_completo])))
                     
                     if coincidencias:
-                        # LOGICA MEJORADA PARA EL ORGANISMO
-                        organismo = "Desconocido"
-                        if 'author_detail' in entrada and 'name' in entrada.author_detail:
-                            organismo = entrada.author_detail.name
-                        elif 'author' in entrada:
-                            organismo = entrada.author
+                        # --- BÚSQUEDA ROBUSTA DEL ORGANISMO ---
+                        organismo = "No detectado"
                         
+                        # 1. Intentar por etiquetas estándar
+                        if entrada.get('author'):
+                            organismo = entrada.author
+                        elif entrada.get('author_detail'):
+                            organismo = entrada.author_detail.get('name', "No detectado")
+                        
+                        # 2. Si sigue siendo desconocido, buscar dentro del resumen (patrón común en PLACSP)
+                        if organismo == "No detectado" or "Plataforma" in organismo:
+                            match = re.search(r"Organo de Contratacion: (.*?);", resumen_raw)
+                            if match:
+                                organismo = match.group(1).strip()
+
                         try: fecha_pub = datetime(*entrada.published_parsed[:3]).strftime("%d/%m/%Y")
                         except: fecha_pub = datetime.now().strftime("%d/%m/%Y")
 
@@ -113,27 +125,26 @@ if check_password():
                             "Publicado": fecha_pub, 
                             "Organismo": organismo,
                             "Título": entrada.title, 
-                            "Palabras Detectadas": ", ".join(list(set(coincidencias))), 
+                            "Palabras Detectadas": ", ".join(coincidencias), 
                             "Enlace Oficial": entrada.link
                         })
 
             historial, nuevas = guardar_en_historial(ofertas_encontradas)
             if nuevas > 0:
-                st.success(f"¡Detectadas {nuevas} nuevas!")
+                st.success(f"¡Se han encontrado {nuevas} licitaciones interesantes!")
                 df_nuevas = pd.DataFrame(historial[-nuevas:])
                 columnas = ["Publicado", "Organismo", "Título", "Palabras Detectadas", "Enlace Oficial"]
                 st.dataframe(df_nuevas[columnas], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             else:
-                st.info("No hay novedades.")
+                st.info("No hay nuevas licitaciones desde la última vez.")
 
     with tab2:
         historial = cargar_y_limpiar_historial()
         if historial:
             df_historial = pd.DataFrame(list(reversed(historial)))
             columnas_ver = ["Publicado", "Organismo", "Título", "Palabras Detectadas", "Enlace Oficial"]
-            # Asegurar columnas
             for c in columnas_ver: 
                 if c not in df_historial.columns: df_historial[c] = "N/A"
             st.dataframe(df_historial[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
         else:
-            st.info("Archivo vacío.")
+            st.info("El historial está vacío.")
