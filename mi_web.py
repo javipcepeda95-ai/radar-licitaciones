@@ -15,22 +15,22 @@ from xhtml2pdf import pisa
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="📡", layout="wide")
 
 # ==============================================================================
-# --- 2. CSS AVANZADO (DISEÑO CORPORATIVO Y CORRECCIONES) ---
+# --- 2. CSS AVANZADO (DISEÑO CORPORATIVO Y POSICIONAMIENTO DE LOGO) ---
 # ==============================================================================
 st.markdown(
     """
     <style>
         :root { --coral-red: #FF4B4B; --anerpro-blue: #002C5F; }
         
-        /* Ocultar navegación nativa de Streamlit */
+        /* Ocultar navegación nativa */
         [data-testid="stSidebarNav"] { display: none !important; }
         
-        /* AJUSTE: Subimos la cabecera reduciendo el padding superior */
+        /* Subir la cabecera del cuerpo principal */
         .block-container {
-            padding-top: 3.5rem !important; 
+            padding-top: 3rem !important; 
         }
 
-        /* Estilo de Cabecera con Antena */
+        /* Cabecera con Antena */
         .radar-header {
             display: flex;
             align-items: center;
@@ -48,7 +48,7 @@ st.markdown(
             line-height: 1.1;
         }
 
-        /* Botones Anerpro (Rojos) */
+        /* Botones estilo Anerpro */
         .stButton button[kind="primary"], [data-testid="stFormSubmitButton"] button {
             background-color: var(--coral-red) !important;
             color: white !important;
@@ -58,28 +58,37 @@ st.markdown(
             border-radius: 8px !important;
         }
 
-        /* Estética del Sidebar */
+        /* --- AJUSTE LOGO SIDEBAR --- */
         [data-testid="stSidebar"] {
             background-color: #fcfcfc;
         }
+        
+        /* Forzamos que el contenido del sidebar suba al máximo */
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+            padding-top: 0rem !important;
+            margin-top: -20px !important;
+        }
 
-        /* Ajuste de botones en línea para informes */
-        .informe-btns {
-            display: flex;
-            gap: 10px;
+        /* Estilo para que el logo se vea arriba a la izquierda */
+        .logo-container-sidebar {
+            margin-top: -30px !important;
+            margin-bottom: 20px !important;
+            text-align: left !important;
         }
         
-        /* Estilo para que el expander de Menu destaque */
+        /* Estilo del desplegable Menu */
         .st-expanderHeader {
             font-weight: bold !important;
             color: #31333F !important;
+            border: 1px solid #eee !important;
+            border-radius: 5px !important;
         }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# --- ICONO SVG DE LA ANTENA (Reutilizable) ---
+# --- ICONO SVG DE LA ANTENA ---
 def mostrar_cabecera(titulo):
     st.markdown(
         f"""
@@ -95,7 +104,7 @@ def mostrar_cabecera(titulo):
         """, unsafe_allow_html=True
     )
 
-# --- PROMPT MAESTRO PARA GEMINI 2.0 ---
+# --- PROMPT MAESTRO ---
 PROMPT_MAESTRO = """
 Actúa como un Analista Experto en Contratación Pública. Contexto: ANERPRO es empresa EPCista (ciclo del agua, MT/BT, biogás, automatización). ROLECE: I-5-2; I-6-3; I-8-1; I-9-3; J-2-3; J-3-2; J-4-3; J-5-4; K-9-1; O-4-1; P-1-1; P-2-3; P-3-3; P-5-1; Q-1-3.
 ANALIZA y devuelve JSON: { "titulo_oferta": "...", "datos_initiales": [...], "alcance": [...], "pros": [...], "contras": [...], "valoracion_puntuacion": "...", "valoracion_texto": "..." }
@@ -113,7 +122,7 @@ def check_password():
     
     with col2:
         if os.path.exists("logo.png"):
-            # Centrado exacto del logo mediante sub-columnas
+            # Centrado exacto del logo para el login
             _, mid_logo, _ = st.columns([0.5, 2, 0.5])
             with mid_logo:
                 st.image("logo.png", use_container_width=True)
@@ -136,7 +145,7 @@ if check_password():
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     KEYWORDS = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
 
-    # --- 5. FUNCIONES DE EXTRACCIÓN (RESTAURADAS DEL CÓDIGO ANTIGUO) ---
+    # --- 5. FUNCIONES DE EXTRACCIÓN (BASADAS EN CÓDIGO ANTIGUO) ---
     def normalizar(t): return ''.join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn') if t else ""
     
     def formatear_moneda(v):
@@ -149,7 +158,6 @@ if check_password():
         except: return v
 
     def extraer_organismo(e, res):
-        # Lógica del código antiguo que funcionaba correctamente
         m = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", res, re.I | re.S)
         if m: 
             return re.sub(r'<[^>]*>', '', m.group(1).strip())
@@ -160,7 +168,6 @@ if check_password():
     def extraer_presupuesto(res):
         if not res: return "Ver en PDF"
         t = re.sub(r'<[^>]*>', ' ', res)
-        # Búsqueda de patrones económicos restaurada
         for p in [r"(?:Importe|Valor estimado):\s*([\d\.]+(?:,\d{1,2})?)", r"([\d\.]+(?:\d{3})?,\d{2})\s*(?:EUR|€)"]:
             m = re.search(p, t, re.I)
             if m: return formatear_moneda(m.group(1).strip())
@@ -181,13 +188,17 @@ if check_password():
                 except: return []
         return []
 
-    # --- 6. BARRA LATERAL (MENU DESPLEGABLE) ---
+    # --- 6. BARRA LATERAL (LOGO ARRIBA A LA IZQUIERDA Y MENU DESPLEGABLE) ---
     with st.sidebar:
+        # Contenedor del logo con CSS para subirlo al máximo
+        st.markdown('<div class="logo-container-sidebar">', unsafe_allow_html=True)
         if os.path.exists("logo.png"): 
-            st.image("logo.png", width=140)
+            st.image("logo.png", width=130)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
         st.write("---")
         
-        # El "Menu" es un expander para ocultar opciones inicialmente
+        # El "Menu" es un expander para ocultar opciones inicialmente como solicitaste
         with st.expander("Menu", expanded=False):
             opcion = st.radio(
                 "Navegación:",
@@ -195,12 +206,12 @@ if check_password():
                 label_visibility="collapsed"
             )
         
-        st.markdown("<div style='height: 48vh;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 45vh;'></div>", unsafe_allow_html=True)
         if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state["password_correct"] = False
             st.rerun()
 
-    # Configuración maestra para las tablas
+    # Configuración de tabla
     config_tabla = {
         "Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace"),
         "Publicado": st.column_config.TextColumn("Publicado", width="small"),
@@ -276,7 +287,7 @@ if check_password():
         else: 
             st.info("El historial está vacío.")
 
-    # --- VISTA 3: GENERACIÓN DE INFORMES ---
+    # --- VISTA 3: GENERACIÓN INFORMES ---
     elif "Generación" in opcion:
         mostrar_cabecera("Analista de Licitaciones IA")
         st.write("Carga los pliegos PDF para generar el informe corporativo.")
@@ -313,7 +324,7 @@ if check_password():
                                @frame footer_frame {{ -pdf-frame-content: fc; bottom: 1cm; height: 1cm; }} }}
                         body {{ font-family: Helvetica, sans-serif; font-size: 11pt; color: #333; }}
                         #hc {{ text-align: right; }} #fc {{ text-align: right; font-size: 9pt; color: #888; }}
-                        .tit {{ text-align: center; color: #002C5F; font-size: 16pt; font-weight: bold; border-bottom: 2.5px solid #002C5F; padding-bottom: 5px; text-transform: uppercase; }}
+                        .tit {{ text-align: center; color: #002C5F; font-size: 16pt; font-weight: bold; border-bottom: 2px solid #002C5F; padding-bottom: 5px; text-transform: uppercase; }}
                         .sec {{ background-color: #F0F4F8; color: #002C5F; padding: 5px 10px; font-weight: bold; border-left: 4px solid #002C5F; margin-top: 15px; }}
                         table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
                         th {{ background-color: #002C5F; color: white; padding: 8px; text-align: left; }}
