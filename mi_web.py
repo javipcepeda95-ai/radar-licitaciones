@@ -61,6 +61,14 @@ st.markdown(
         /* --- REDISEÑO TOTAL SIDEBAR --- */
         [data-testid="stSidebar"] {
             background-color: #fcfcfc;
+            position: relative !important; /* Para anclar el botón de cerrar sesión */
+        }
+        
+        /* Ocultar línea superior por defecto de Streamlit */
+        [data-testid="stSidebarHeader"] {
+            background: transparent !important;
+            border-bottom: none !important;
+            padding-bottom: 0px !important;
         }
         
         /* Eliminar padding superior para subir el logo al máximo */
@@ -68,10 +76,11 @@ st.markdown(
             padding-top: 0rem !important;
         }
 
-        /* Contenedor Logo: Arriba a la izquierda con raya divisoria */
+        /* Contenedor Logo: Arriba a la izquierda con raya divisoria DEBAJO */
         .logo-box {
-            padding: 10px 0px 10px 15px;
-            border-bottom: 1px solid #e6e9ef;
+            margin-top: -60px !important; /* Fuerza la subida tapando el header original */
+            padding: 10px 0px 15px 15px;
+            border-bottom: 1.5px solid #e6e9ef;
             margin-bottom: 15px;
             text-align: left;
         }
@@ -120,19 +129,26 @@ st.markdown(
             background-color: white !important;
         }
 
-        /* --- BOTÓN CIERRE: ABAJO A LA DERECHA --- */
-        div.stButton > button:has(div:contains("Cerrar Sesión")) {
-            position: fixed;
-            bottom: 20px;
-            right: 15px; /* Dentro del ancho del sidebar */
-            width: auto !important;
-            padding: 0.4rem 1rem !important;
-            font-size: 0.85rem !important;
+        /* --- BOTÓN CIERRE: ABAJO DEL TODO --- */
+        [data-testid="stSidebar"] [data-testid="stButton"] {
+            position: absolute !important;
+            bottom: 25px !important;
+            left: 5% !important;
+            width: 90% !important;
+        }
+        
+        [data-testid="stSidebar"] [data-testid="stButton"] button {
+            width: 100% !important;
             background-color: transparent !important;
             color: #888 !important;
             border: 1px solid #ddd !important;
+            padding: 0.4rem 1rem !important;
+            font-size: 0.9rem !important;
+            border-radius: 8px !important;
+            transition: all 0.3s ease;
         }
-        div.stButton > button:has(div:contains("Cerrar Sesión")):hover {
+        
+        [data-testid="stSidebar"] [data-testid="stButton"] button:hover {
             border-color: var(--coral-red) !important;
             color: var(--coral-red) !important;
         }
@@ -240,23 +256,23 @@ if check_password():
                 except: return []
         return []
 
-    # --- 6. BARRA LATERAL (LOGO ARRIBA Y MENU COMPACTO) ---
+    # --- 6. BARRA LATERAL (DISEÑO DEFINITIVO) ---
     with st.sidebar:
-        # Logo arriba con línea divisoria
+        # Contenedor que agrupa el logo y su borde inferior 
         st.markdown('<div class="logo-box">', unsafe_allow_html=True)
         if os.path.exists("logo.png"): 
             st.image("logo.png", width=120)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Expander "Menu" sin huecos internos
+        # Expander "Menu" sin texto de navegación
         with st.expander("Menu", expanded=False):
             opcion = st.radio(
-                "Navegación:",
+                "", # Se elimina el texto "Navegación:"
                 ["🔍 Búsqueda Licitaciones", "📁 Archivo e Informes", "📄 Generación Informes"],
                 label_visibility="collapsed"
             )
         
-        # Botón de cierre (fijado por CSS abajo a la derecha del sidebar)
+        # Botón de cierre de sesión (El CSS lo moverá abajo del todo)
         if st.button("Cerrar Sesión"):
             st.session_state["password_correct"] = False
             st.rerun()
