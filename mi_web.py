@@ -19,27 +19,22 @@ st.markdown(
     <style>
         :root { --coral-red: #FF4B4B; }
         
-        /* Ocultar barra superior vacía de Streamlit */
         [data-testid="stSidebarNav"] { display: none !important; }
         
-        /* Ajustar el logo arriba */
         [data-testid="stSidebar"] img {
             margin-top: -30px !important;
             margin-bottom: 10px !important;
         }
 
-        /* Subir el contenido principal quitando el margen gigante por defecto */
         .block-container {
             padding-top: 2rem !important; 
         }
 
-        /* Quitar el borde del formulario de login para que quede limpio */
         [data-testid="stForm"] {
             border: none !important;
             padding: 0 !important;
         }
 
-        /* --- ESTILOS DE CABECERA --- */
         .radar-header {
             display: flex;
             align-items: center;
@@ -50,17 +45,15 @@ st.markdown(
             padding-bottom: 15px;
         }
         
-        /* TRUCO: Usamos una clase en lugar de <h1> para evitar que Streamlit lo corte */
         .radar-title {
             font-size: 2.8rem;
             font-weight: 700;
             color: #31333F;
             margin: 0;
             padding: 0;
-            line-height: 1.4; /* Espacio de sobra para que no se corte por arriba */
+            line-height: 1.4; 
         }
 
-        /* Botón rojo corporativo (Actualizar / Entrar) */
         .stButton button[kind="primary"], [data-testid="stFormSubmitButton"] button {
             background-color: var(--coral-red) !important;
             color: white !important;
@@ -72,7 +65,6 @@ st.markdown(
             background-color: #e34343 !important;
         }
         
-        /* Botones de acción en tablas (Descargar / Reset) */
         .action-buttons .stButton button {
             font-weight: 600 !important;
         }
@@ -81,7 +73,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- 3. SISTEMA DE SEGURIDAD (Login PANTALLA CENTRADA) ---
+# --- 3. SISTEMA DE SEGURIDAD (Login) ---
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
@@ -126,6 +118,7 @@ if check_password():
 
     # --- 5. FUNCIONES ---
     def normalizar(t): return ''.join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn') if t else ""
+    
     def formatear_moneda(v):
         if not v or "PDF" in str(v): return v
         try:
@@ -134,6 +127,7 @@ if check_password():
             elif "," in l: l = l.replace(",", ".")
             return f"{float(l):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + " €"
         except: return v
+        
     def extraer_presupuesto(texto):
         if not texto: return "Ver en PDF"
         t = re.sub(r'<[^>]*>', ' ', texto)
@@ -141,6 +135,20 @@ if check_password():
             m = re.search(p, t, re.I)
             if m: return formatear_moneda(m.group(1).strip())
         return "Ver en PDF"
+
+    # NUEVA FUNCIÓN: Extraer fecha de cierre
+    def extraer_fecha_cierre(texto):
+        if not texto: return "No indicada"
+        texto_limpio = re.sub(r'<[^>]*>', ' ', texto)
+        patrones = [
+            r"Fin de plazo de presentación de oferta[s]?:\s*(\d{2}/\d{2}/\d{4})",
+            r"Plazo de presentación de oferta[s]?:\s*(\d{2}/\d{2}/\d{4})",
+            r"Fecha límite de presentación:\s*(\d{2}/\d{2}/\d{4})"
+        ]
+        for p in patrones:
+            match = re.search(p, texto_limpio, re.IGNORECASE)
+            if match: return match.group(1)
+        return "No indicada"
 
     def cargar_y_limpiar_historial():
         if os.path.exists(ARCHIVO_HISTORIAL):
@@ -193,7 +201,6 @@ if check_password():
             st.rerun()
 
     # --- 7. CUERPO PRINCIPAL ---
-    # Fíjate que ahora usamos <div class="radar-title"> en lugar de <h1>
     st.markdown(
         """
         <div class="radar-header">
@@ -210,7 +217,8 @@ if check_password():
         """, unsafe_allow_html=True
     )
 
-    columnas_ver = ["Publicado", "Organismo", "Título", "Presupuesto", "Palabras Detectadas", "Enlace Oficial"]
+    # Añadida la nueva columna "Fin Plazo"
+    columnas_ver = ["Publicado", "Organismo", "Título", "Presupuesto", "Fin Plazo", "Palabras Detectadas", "Enlace Oficial"]
 
     # VISTA 1: BÚSQUEDA
     if opcion_navegacion == "🔍 Búsqueda Licitaciones":
@@ -218,30 +226,57 @@ if check_password():
         st.write("Pulsa el botón para escanear las últimas publicaciones de la Plataforma de Contratación del Estado.")
         
         if st.button("Actualizar y Buscar Ahora", type="primary"):
-            with st.spinner('Escaneando plataforma del Estado...'):
+            with st.spinner('Escaneando plataforma del Estado y filtrando fechas caducadas...'):
                 feed = feedparser.parse(URL_FEED)
                 encontradas = []
+                hoy = datetime.now().date() # Cogemos el día exacto en el que estamos
+                
                 for e in feed.entries:
                     res = e.summary if 'summary' in e else ""
                     txt = normalizar(e.title + " " + res)
                     coin = sorted(list(set([k.upper() for k in KEYWORDS if normalizar(k) in txt])))
+                    
                     if coin:
-                        org = "No detectado"
-                        m = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", res, re.I | re.S)
-                        if m: org = m.group(1).strip()
-                        elif e.get('author'): org = e.author
-                        try: f_pub = datetime(*e.published_parsed[:3]).strftime("%d/%m/%Y")
-                        except: f_pub = datetime.now().strftime("%d/%m/%Y")
-                        encontradas.append({"Publicado": f_pub, "Organismo": org, "Título": e.title, "Presupuesto": extraer_presupuesto(res), "Palabras Detectadas": ", ".join(coin), "Enlace Oficial": e.link})
+                        # 1. Extraemos la fecha límite
+                        fecha_cierre_str = extraer_fecha_cierre(res)
+                        es_valida = True
+                        
+                        # 2. Comprobamos si está caducada
+                        if fecha_cierre_str != "No indicada":
+                            try:
+                                fecha_cierre_dt = datetime.strptime(fecha_cierre_str, "%d/%m/%Y").date()
+                                if fecha_cierre_dt < hoy:
+                                    es_valida = False # Está caducada, la descartamos
+                            except:
+                                pass # Si hay error de formato, la mantenemos por precaución
+                        
+                        # 3. Si tiene palabras clave y NO está caducada, la guardamos
+                        if es_valida:
+                            org = "No detectado"
+                            m = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", res, re.I | re.S)
+                            if m: org = m.group(1).strip()
+                            elif e.get('author'): org = e.author
+                            try: f_pub = datetime(*e.published_parsed[:3]).strftime("%d/%m/%Y")
+                            except: f_pub = datetime.now().strftime("%d/%m/%Y")
+                            
+                            encontradas.append({
+                                "Publicado": f_pub, 
+                                "Organismo": org, 
+                                "Título": e.title, 
+                                "Presupuesto": extraer_presupuesto(res), 
+                                "Fin Plazo": fecha_cierre_str, # Se añade el dato
+                                "Palabras Detectadas": ", ".join(coin), 
+                                "Enlace Oficial": e.link
+                            })
 
             historial, nuevas = guardar_en_historial(encontradas)
             if nuevas > 0:
-                st.success(f"¡Detectadas {nuevas} nuevas oportunidades!")
+                st.success(f"¡Detectadas {nuevas} nuevas oportunidades VIGENTES!")
                 df = pd.DataFrame(historial[-nuevas:])
                 for c in columnas_ver:
                     if c not in df.columns: df[c] = "N/A"
                 st.dataframe(df[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
-            else: st.info("No hay novedades interesantes en este momento. Inténtalo más tarde.")
+            else: st.info("No hay novedades vigentes en este momento. Las ofertas detectadas ya han expirado.")
 
     # VISTA 2: ARCHIVOS E INFORMES
     elif opcion_navegacion == "📁 Archivos e Informes":
