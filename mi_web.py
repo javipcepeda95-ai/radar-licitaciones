@@ -28,7 +28,7 @@ if check_password():
     URL_FEED = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     DIAS_RETENCION = 5
-    KEYWORDS = ["energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc"]
+    KEYWORDS = ["energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
 
     def normalizar_texto(texto):
         if not texto: return ""
