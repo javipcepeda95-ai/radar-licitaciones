@@ -51,15 +51,11 @@ if check_password():
             for item in datos:
                 try:
                     fecha_str = item.get("Detectado el") or item.get("Detectado")
-                    # Soporte para ambos formatos de fecha
-                    if "-" in fecha_str:
+                    if "-" in str(fecha_str):
                         fecha_item = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M:%S")
                     else:
                         fecha_item = datetime.strptime(fecha_str, "%d/%m/%Y %H:%M")
-                        
                     if fecha_item >= fecha_limite:
-                        if "Publicado" not in item: item["Publicado"] = "Anterior"
-                        if "Organismo" not in item: item["Organismo"] = "N/A"
                         datos_limpios.append(item)
                 except: pass
             return datos_limpios
@@ -79,23 +75,18 @@ if check_password():
         return historial_actual, añadidas
 
     # --- INTERFAZ ---
-    st.title("Radar de Licitaciones 🏢")
-    
-    # BARRA LATERAL CON OPCIONES DE SESIÓN Y MANTENIMIENTO
     with st.sidebar:
         st.header("Opciones")
         if st.button("Cerrar Sesión"):
             st.session_state["password_correct"] = False
             st.rerun()
-        
         st.divider()
-        st.warning("Zona de mantenimiento")
         if st.button("Vaciar Memoria (Reset)"):
             if os.path.exists(ARCHIVO_HISTORIAL):
                 os.remove(ARCHIVO_HISTORIAL)
-                st.success("Memoria borrada. La próxima búsqueda leerá todo de nuevo.")
                 st.rerun()
 
+    st.title("Radar de Licitaciones 🏢")
     tab1, tab2 = st.tabs(["🔍 Buscar Nuevas", "📁 Archivo (5 días)"])
 
     with tab1:
@@ -104,14 +95,19 @@ if check_password():
                 feed = feedparser.parse(URL_FEED)
                 ofertas_encontradas = []
                 for entrada in feed.entries:
-                    texto = normalizar_texto(entrada.title + " " + (entrada.summary if 'summary' in entrada else ""))
-                    coincidencias = [kw.upper() for kw in KEYWORDS if normalizar_texto(kw) in texto]
+                    texto_completo = normalizar_texto(entrada.title + " " + (entrada.summary if 'summary' in entrada else ""))
+                    coincidencias = [kw.upper() for kw in KEYWORDS if normalizar_texto(kw) in texto_completo]
+                    
                     if coincidencias:
+                        # LOGICA MEJORADA PARA EL ORGANISMO
+                        organismo = "Desconocido"
+                        if 'author_detail' in entrada and 'name' in entrada.author_detail:
+                            organismo = entrada.author_detail.name
+                        elif 'author' in entrada:
+                            organismo = entrada.author
+                        
                         try: fecha_pub = datetime(*entrada.published_parsed[:3]).strftime("%d/%m/%Y")
                         except: fecha_pub = datetime.now().strftime("%d/%m/%Y")
-                        
-                        # Extraer Organismo (Autor)
-                        organismo = entrada.author if 'author' in entrada else "Desconocido"
 
                         ofertas_encontradas.append({
                             "Publicado": fecha_pub, 
@@ -126,9 +122,7 @@ if check_password():
                 st.success(f"¡Detectadas {nuevas} nuevas!")
                 df_nuevas = pd.DataFrame(historial[-nuevas:])
                 columnas = ["Publicado", "Organismo", "Título", "Palabras Detectadas", "Enlace Oficial"]
-                st.dataframe(df_nuevas[columnas], 
-                             column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, 
-                             hide_index=True, use_container_width=True)
+                st.dataframe(df_nuevas[columnas], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             else:
                 st.info("No hay novedades.")
 
@@ -137,13 +131,9 @@ if check_password():
         if historial:
             df_historial = pd.DataFrame(list(reversed(historial)))
             columnas_ver = ["Publicado", "Organismo", "Título", "Palabras Detectadas", "Enlace Oficial"]
-            # Nos aseguramos de que el DataFrame tenga todas las columnas antes de mostrarlo
-            for col in columnas_ver:
-                if col not in df_historial.columns:
-                    df_historial[col] = "N/A"
-            
-            st.dataframe(df_historial[columnas_ver], 
-                         column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, 
-                         hide_index=True, use_container_width=True)
+            # Asegurar columnas
+            for c in columnas_ver: 
+                if c not in df_historial.columns: df_historial[c] = "N/A"
+            st.dataframe(df_historial[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
         else:
             st.info("Archivo vacío.")
