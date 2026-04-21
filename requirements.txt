@@ -3,4 +3,5 @@ feedparser
 pandas
 openpyxl
 google-generativeai
-xhtml2pdf
+xhtml2pdf==0.2.16
+reportlab>=4.0.4
