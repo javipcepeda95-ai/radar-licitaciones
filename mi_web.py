@@ -11,6 +11,23 @@ import io
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="🤖", layout="wide")
 
+# --- TRUCO CSS PARA SUBIR EL LOGO AL MÁXIMO ---
+st.markdown(
+    """
+    <style>
+        /* Elimina el espacio superior de la barra lateral */
+        [data-testid="stSidebarUserContent"] {
+            padding-top: 0rem;
+        }
+        /* Ajusta el margen superior de la primera imagen en la sidebar */
+        [data-testid="stSidebar"] img {
+            margin-top: -20px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # --- 2. SISTEMA DE SEGURIDAD (Login) ---
 def check_password():
     if "password_correct" not in st.session_state:
@@ -105,14 +122,13 @@ if check_password():
             json.dump(historial_actual, f, indent=4, ensure_ascii=False)
         return historial_actual, añadidas
 
-    # --- 5. BARRA LATERAL (LOGO ARRIBA A LA IZQUIERDA) ---
+    # --- 5. BARRA LATERAL ---
     with st.sidebar:
-        # El logo es lo primero que se carga para que esté arriba del todo
+        # El logo ahora subirá gracias al CSS inyectado arriba
         if os.path.exists("logo.png"):
-            st.image("logo.png", width=150) # Tamaño reducido para la esquina
+            st.image("logo.png", width=160)
             st.divider()
         
-        # Botones de control
         if st.button("Cerrar Sesión"):
             st.session_state["password_correct"] = False
             st.rerun()
@@ -132,7 +148,7 @@ if check_password():
 
     with tab1:
         if st.button("Actualizar y Buscar Ahora", type="primary"):
-            with st.spinner('Escaneando plataforma del Estado...'):
+            with st.spinner('Escaneando plataforma...'):
                 feed = feedparser.parse(URL_FEED)
                 ofertas_encontradas = []
                 
@@ -161,7 +177,7 @@ if check_password():
 
             historial, nuevas = guardar_en_historial(ofertas_encontradas)
             if nuevas > 0:
-                st.success(f"¡Se han detectado {nuevas} oportunidades nuevas!")
+                st.success(f"¡Detectadas {nuevas} nuevas!")
                 df_nuevas = pd.DataFrame(historial[-nuevas:])
                 for c in columnas_ver:
                     if c not in df_nuevas.columns: df_nuevas[c] = "N/A"
