@@ -12,34 +12,19 @@ import io
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="📡", layout="wide")
 
 # ==============================================================================
-# --- 2. CSS DEFINITIVO (BOTÓN CLAVADO AL FONDO) ---
+# --- 2. CSS LIMPIO Y TOTALMENTE SEGURO ---
 # ==============================================================================
 st.markdown(
     """
     <style>
         :root { --coral-red: #FF4B4B; }
         
-        /* Ocultar barra superior de Streamlit */
+        /* Ocultar barra superior vacía de Streamlit */
         [data-testid="stSidebarNav"] { display: none !important; }
         
-        /* Ajustar el logo arriba */
+        /* Subir el logo suavemente */
         [data-testid="stSidebar"] img {
             margin-top: -30px !important;
-            margin-bottom: 20px !important;
-        }
-
-        /* --- LA MAGIA DEL BOTÓN --- */
-        /* 1. Convertimos la barra lateral en un contenedor de altura fija */
-        [data-testid="stSidebarUserContent"] {
-            position: relative !important;
-            min-height: 88vh !important;
-        }
-        
-        /* 2. Agarramos el ÚLTIMO elemento de la barra (el botón) y lo anclamos al fondo absoluto */
-        [data-testid="stSidebarUserContent"] > div > div:last-child {
-            position: absolute !important;
-            bottom: 0px !important;
-            width: 100% !important;
         }
 
         /* --- ESTILOS DE CABECERA --- */
@@ -57,7 +42,7 @@ st.markdown(
             padding: 0;
         }
         
-        /* Pestañas rojas */
+        /* Pestañas (Pinta la primera de rojo) */
         button[data-baseweb="tab"]:nth-child(1) p {
             color: var(--coral-red) !important;
             font-weight: 600 !important;
@@ -67,7 +52,7 @@ st.markdown(
             font-size: 1.1rem;
         }
 
-        /* Botón rojo */
+        /* Botón rojo corporativo */
         .stButton button[kind="primary"] {
             background-color: var(--coral-red) !important;
             color: white !important;
@@ -158,18 +143,24 @@ if check_password():
             with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4, ensure_ascii=False)
         return hist, añadidas
 
-    # --- 6. BARRA LATERAL ---
+    # --- 6. BARRA LATERAL (ESTRUCTURA SEGURA) ---
     with st.sidebar:
+        # Logo arriba de todo
         if os.path.exists("logo.png"): st.image("logo.png", width=140)
         
         st.divider()
+        
+        # Mantenimiento
         st.caption("⚙️ Mantenimiento")
         if st.button("Vaciar Memoria (Reset)", use_container_width=True):
             if os.path.exists(ARCHIVO_HISTORIAL): os.remove(ARCHIVO_HISTORIAL)
             st.rerun()
             
-        # IMPORTANTE: Este botón DEBE ser el último código dentro de st.sidebar
-        # El CSS "position: absolute" lo agarrará automáticamente y lo pegará abajo
+        # ESPACIADOR INVISIBLE: Ocupa el 50% de la altura de la pantalla
+        # Esto empuja físicamente el botón inferior hacia abajo sin romper el CSS
+        st.markdown("<div style='height: 50vh;'></div>", unsafe_allow_html=True)
+        
+        # Cerrar Sesión
         if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state["password_correct"] = False
             st.rerun()
