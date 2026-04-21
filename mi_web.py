@@ -8,15 +8,25 @@ import os
 import re
 import io
 
-# --- CONFIGURACIÓN DE LA PÁGINA ---
+# --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Radar Pro Licitaciones", page_icon="🤖", layout="wide")
 
+# --- 2. LOGO DE EMPRESA ---
+# Asegúrate de que el nombre coincida con el archivo que subiste a GitHub
+if os.path.exists("logo.png"):
+    st.logo("logo.png")
+else:
+    # Si no encuentra el archivo, no rompe la app, solo avisa internamente
+    pass
+
+# --- 3. SISTEMA DE SEGURIDAD ---
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
     if st.session_state["password_correct"]: return True
+    
     st.title("🔒 Acceso Restringido")
-    password_input = st.text_input("Introduce la contraseña:", type="password")
+    password_input = st.text_input("Introduce la contraseña corporativa:", type="password")
     if st.button("Entrar"):
         if password_input == st.secrets["PASSWORD_WEB"]:
             st.session_state["password_correct"] = True
@@ -31,25 +41,20 @@ if check_password():
     
     KEYWORDS = ["energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
 
+    # --- 4. FUNCIONES DE APOYO ---
     def normalizar_texto(texto):
         if not texto: return ""
         return ''.join(c for c in unicodedata.normalize('NFD', texto.lower()) if unicodedata.category(c) != 'Mn')
 
     def formatear_moneda_es(valor_str):
-        """Convierte '48972.16 €' o '48972.16' en '48.972,16 €'"""
-        if not valor_str or "Ver en PDF" in valor_str: return valor_str
+        if not valor_str or "Ver en PDF" in str(valor_str): return valor_str
         try:
-            # Limpiamos todo lo que no sea número, punto o coma
-            limpio = "".join(c for c in valor_str if c.isdigit() or c in ".,")
-            
-            # Detectar formato: si tiene punto y coma es 1.234,56 -> normalizar a 1234.56
+            limpio = "".join(c for c in str(valor_str) if c.isdigit() or c in ".,")
             if "." in limpio and "," in limpio:
                 limpio = limpio.replace(".", "").replace(",", ".")
             elif "," in limpio:
                 limpio = limpio.replace(",", ".")
-            
             numero = float(limpio)
-            # Formateamos a miles con punto y decimales con coma
             return f"{numero:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + " €"
         except:
             return valor_str
@@ -57,19 +62,15 @@ if check_password():
     def extraer_presupuesto(texto):
         if not texto: return "Ver en PDF"
         texto_limpio = re.sub(r'<[^>]*>', ' ', texto)
-        
         patrones = [
             r"(?:Importe|Importe neto|Valor estimado|PVP):\s*([\d\.]+(?:,\d{1,2})?)",
             r"([\d\.]+(?:\d{3})?,\d{2})\s*(?:EUR|€|Euros)",
             r"([\d\.]+(?:\d{3})?)\s*(?:EUR|€|Euros)"
         ]
-        
         for p in patrones:
             match = re.search(p, texto_limpio, re.IGNORECASE)
             if match:
-                valor_crudo = match.group(1).strip()
-                return formatear_moneda_es(valor_crudo)
-        
+                return formatear_moneda_es(match.group(1).strip())
         return "Ver en PDF"
 
     def cargar_y_limpiar_historial():
@@ -82,11 +83,9 @@ if check_password():
             for item in datos:
                 try:
                     fecha_str = item.get("Detectado el") or item.get("Detectado")
-                    fecha_item = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M:%S") if "-" in str(fecha_str) else datetime.strptime(fecha_str, "%d/%m/%Y %H:%M")
-                    if fecha_item >= fecha_limite: 
-                        # Formatear el presupuesto guardado por si era viejo
-                        if "Presupuesto" in item:
-                            item["Presupuesto"] = formatear_moneda_es(item["Presupuesto"])
+                    fecha_item = datetime.strptime(str(fecha_str), "%Y-%m-%d %H:%M:%S") if "-" in str(fecha_str) else datetime.strptime(str(fecha_str), "%d/%m/%Y %H:%M")
+                    if fecha_item >= fecha_limite:
+                        if "Presupuesto" in item: item["Presupuesto"] = formatear_moneda_es(item["Presupuesto"])
                         datos_limpios.append(item)
                 except: pass
             return datos_limpios
@@ -105,9 +104,9 @@ if check_password():
             json.dump(historial_actual, f, indent=4, ensure_ascii=False)
         return historial_actual, añadidas
 
-    # --- INTERFAZ ---
+    # --- 5. INTERFAZ ---
     with st.sidebar:
-        st.header("Opciones")
+        st.header("Menú")
         if st.button("Cerrar Sesión"):
             st.session_state["password_correct"] = False
             st.rerun()
@@ -123,7 +122,7 @@ if check_password():
 
     with tab1:
         if st.button("Actualizar y Buscar Ahora", type="primary"):
-            with st.spinner('Escaneando plataforma...'):
+            with st.spinner('Escaneando plataforma del Estado...'):
                 feed = feedparser.parse(URL_FEED)
                 ofertas_encontradas = []
                 for entrada in feed.entries:
@@ -151,25 +150,22 @@ if check_password():
 
             historial, nuevas = guardar_en_historial(ofertas_encontradas)
             if nuevas > 0:
-                st.success(f"¡Detectadas {nuevas} nuevas!")
+                st.success(f"¡Se han detectado {nuevas} oportunidades nuevas!")
                 df_nuevas = pd.DataFrame(historial[-nuevas:])
-                # Asegurar formato en la visualización
-                df_nuevas["Presupuesto"] = df_nuevas["Presupuesto"].apply(formatear_moneda_es)
+                for c in columnas_ver: 
+                    if c not in df_nuevas.columns: df_nuevas[c] = "N/A"
                 st.dataframe(df_nuevas[columnas_ver], column_config={"Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace")}, hide_index=True, use_container_width=True)
             else:
-                st.info("No hay novedades.")
+                st.info("No hay novedades interesantes en este momento.")
 
     with tab2:
         historial = cargar_y_limpiar_historial()
         if historial:
             df_historial = pd.DataFrame(list(reversed(historial)))
-            # Formatear presupuestos antiguos
-            df_historial["Presupuesto"] = df_historial["Presupuesto"].apply(formatear_moneda_es)
-            
             for c in columnas_ver: 
                 if c not in df_historial.columns: df_historial[c] = "N/A"
             
-            busqueda = st.text_input("Filtrar historial:")
+            busqueda = st.text_input("Buscar en el historial:")
             if busqueda:
                 df_historial = df_historial[df_historial.apply(lambda row: busqueda.lower() in row.astype(str).str.lower().str.cat(), axis=1)]
 
@@ -179,6 +175,6 @@ if check_password():
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df_historial[columnas_ver].to_excel(writer, index=False, sheet_name='Licitaciones')
             
-            st.download_button(label="📥 Descargar Excel", data=buffer.getvalue(), file_name="informe_licitaciones.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button(label="📥 Descargar Historial en Excel", data=buffer.getvalue(), file_name=f"informe_{datetime.now().strftime('%d_%m_%Y')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
-            st.info("Historial vacío.")
+            st.info("El historial está vacío.")
