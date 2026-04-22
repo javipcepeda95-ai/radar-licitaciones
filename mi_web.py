@@ -195,7 +195,12 @@ def check_password():
 
 if check_password():
     # --- 4. CONFIGURACIÓN ---
-    URL_FEED = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
+    # Ampliamos a 3 canales de sindicación para hacer un "escaneo profundo" de varios días atrás
+    URLS_FEED = [
+        "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom",
+        "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto2.atom",
+        "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto1.atom"
+    ]
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     KEYWORDS = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
 
@@ -296,39 +301,48 @@ if check_password():
         st.write("Escaner en tiempo real de la Plataforma de Contratación del Estado.")
         
         if st.button("Actualizar y Buscar Ahora", type="primary"):
-            with st.spinner('Conectando con el Estado...'):
-                feed = feedparser.parse(URL_FEED)
+            with st.spinner('Conectando con el Estado (Escaneo profundo en 3 canales)...'):
                 encontradas = []
+                enlaces_escaneados = set() # Evitar duplicados si una oferta está repetida en varios canales
                 hoy = datetime.now().date()
                 
-                for e in feed.entries:
-                    res = e.summary if 'summary' in e else ""
-                    txt = normalizar(e.title + " " + res)
-                    coin = sorted(list(set([k.upper() for k in KEYWORDS if normalizar(k) in txt])))
+                # Rastrear los 3 canales uno tras otro
+                for url in URLS_FEED:
+                    feed = feedparser.parse(url)
                     
-                    if coin:
-                        f_cierre = extraer_fecha_cierre(e, res)
+                    for e in feed.entries:
+                        # Si ya la hemos capturado en este escaneo, pasamos a la siguiente
+                        if e.link in enlaces_escaneados:
+                            continue
+                            
+                        res = e.summary if 'summary' in e else ""
+                        txt = normalizar(e.title + " " + res)
+                        coin = sorted(list(set([k.upper() for k in KEYWORDS if normalizar(k) in txt])))
                         
-                        # Blindaje por si la fecha tiene un formato extraño del Estado
-                        es_valida = True
-                        if f_cierre != "No indicada":
-                            try:
-                                if datetime.strptime(f_cierre, "%d/%m/%Y").date() < hoy:
-                                    es_valida = False
-                            except ValueError:
-                                pass # Si la fecha no se puede leer bien, la guardamos por precaución
-                                
-                        if not es_valida: continue
-                        
-                        encontradas.append({
-                            "Publicado": datetime.now().strftime("%d/%m/%Y"),
-                            "Organismo": extraer_organismo(e, res),
-                            "Título": e.title,
-                            "Importe": extraer_presupuesto(res),
-                            "Fin Plazo": f_cierre,
-                            "Palabras Detectadas": ", ".join(coin),
-                            "Enlace Oficial": e.link
-                        })
+                        if coin:
+                            f_cierre = extraer_fecha_cierre(e, res)
+                            
+                            # Blindaje por si la fecha tiene un formato extraño del Estado
+                            es_valida = True
+                            if f_cierre != "No indicada":
+                                try:
+                                    if datetime.strptime(f_cierre, "%d/%m/%Y").date() < hoy:
+                                        es_valida = False
+                                except ValueError:
+                                    pass # Si la fecha no se puede leer bien, la guardamos por precaución
+                                    
+                            if not es_valida: continue
+                            
+                            enlaces_escaneados.add(e.link)
+                            encontradas.append({
+                                "Publicado": datetime.now().strftime("%d/%m/%Y"),
+                                "Organismo": extraer_organismo(e, res),
+                                "Título": e.title,
+                                "Importe": extraer_presupuesto(res),
+                                "Fin Plazo": f_cierre,
+                                "Palabras Detectadas": ", ".join(coin),
+                                "Enlace Oficial": e.link
+                            })
                 
                 hist = cargar_historial()
                 vistos = {o["Enlace Oficial"] for o in hist}
