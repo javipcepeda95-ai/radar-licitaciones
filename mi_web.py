@@ -123,17 +123,38 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- ICONO SVG DE LA ANTENA ---
-def mostrar_cabecera(titulo):
+# --- ICONOS SVG PERSONALIZADOS ---
+def mostrar_cabecera(titulo, tipo_icono="radar"):
+    if tipo_icono == "lupa":
+        svg_code = '''<svg width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="#31333F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="#FF4B4B" stroke-width="3"></line>
+        </svg>'''
+    elif tipo_icono == "carpeta":
+        svg_code = '''<svg width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="#31333F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            <line x1="12" y1="11" x2="12" y2="17" stroke="#FF4B4B" stroke-width="2.5"></line>
+            <line x1="9" y1="14" x2="15" y2="14" stroke="#FF4B4B" stroke-width="2.5"></line>
+        </svg>'''
+    elif tipo_icono == "documento":
+        svg_code = '''<svg width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="#31333F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8" stroke="#FF4B4B" stroke-width="2"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13" stroke="#FF4B4B" stroke-width="2.5"></line>
+            <line x1="16" y1="17" x2="8" y2="17" stroke="#FF4B4B" stroke-width="2.5"></line>
+        </svg>'''
+    else:
+        svg_code = '''<svg width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="#31333F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" stroke-width="1" opacity="0.2"></circle>
+            <line x1="12" y1="12" x2="19" y2="5" stroke="#FF4B4B" stroke-width="2.5"></line>
+            <circle cx="12" cy="12" r="2.5" fill="#FF4B4B" stroke="#FF4B4B"></circle>
+            <path d="M12 2a10 10 0 0 1 10 10" opacity="0.4" stroke="#FF4B4B"></path>
+        </svg>'''
+
     st.markdown(
         f"""
         <div class="radar-header">
-            <svg width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="#31333F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10" stroke-width="1" opacity="0.2"></circle>
-                <line x1="12" y1="12" x2="19" y2="5" stroke="#FF4B4B" stroke-width="2.5"></line>
-                <circle cx="12" cy="12" r="2.5" fill="#FF4B4B" stroke="#FF4B4B"></circle>
-                <path d="M12 2a10 10 0 0 1 10 10" opacity="0.4" stroke="#FF4B4B"></path>
-            </svg>
+            {svg_code}
             <div class="radar-title">{titulo}</div>
         </div>
         """, unsafe_allow_html=True
@@ -282,7 +303,7 @@ if check_password():
         with st.expander("Menu", expanded=False):
             opcion = st.radio(
                 "", 
-                ["🔍 Búsqueda Licitaciones", "📁 Archivo e Informes", "📄 Generación Informes"],
+                ["🔍 Búsqueda Licitaciones", "📁 Historial Licitaciones", "📄 Generación Informes"],
                 label_visibility="collapsed"
             )
         
@@ -305,7 +326,7 @@ if check_password():
 
     # --- VISTA 1: BÚSQUEDA ---
     if "Búsqueda" in opcion:
-        mostrar_cabecera("Radar de Licitaciones")
+        mostrar_cabecera("Búsqueda de Licitaciones", "lupa")
         st.write("Escaner en tiempo real de la Plataforma de Contratación del Estado.")
         
         if st.button("Actualizar y Buscar Ahora", type="primary"):
@@ -378,13 +399,13 @@ if check_password():
                     st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones en las últimas {paginas_leidas} páginas del Estado!")
                     st.dataframe(pd.DataFrame(nuevas), column_config=config_tabla, hide_index=True, use_container_width=True)
                 elif len(encontradas) > 0: 
-                    st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
+                    st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Historial Licitaciones'. No hay novedades recientes.")
                 else: 
                     st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave.")
 
     # --- VISTA 2: ARCHIVO ---
-    elif "Archivo" in opcion:
-        mostrar_cabecera("Historial de Licitaciones")
+    elif "Historial" in opcion:
+        mostrar_cabecera("Historial Licitaciones", "carpeta")
         hist = cargar_historial()
         if hist:
             df = pd.DataFrame(list(reversed(hist)))
@@ -408,7 +429,7 @@ if check_password():
 
     # --- VISTA 3: GENERACIÓN INFORMES ---
     elif "Generación" in opcion:
-        mostrar_cabecera("Analista de Licitaciones IA")
+        mostrar_cabecera("Generación de Informes", "documento")
         st.write("Carga los pliegos PDF para generar el informe corporativo.")
         
         archivos = st.file_uploader("Subir pliegos", type="pdf", accept_multiple_files=True)
