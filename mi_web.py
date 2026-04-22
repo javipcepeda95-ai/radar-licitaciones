@@ -432,9 +432,22 @@ if check_password():
         mostrar_cabecera("Generación de Informes", "documento")
         st.write("Carga los pliegos PDF para generar el informe corporativo.")
         
-        archivos = st.file_uploader("Subir pliegos", type="pdf", accept_multiple_files=True)
+        # Llave dinámica para poder "resetear" el file_uploader
+        if "uploader_key" not in st.session_state:
+            st.session_state["uploader_key"] = 1
+            
+        archivos = st.file_uploader("Subir pliegos", type="pdf", accept_multiple_files=True, key=f"pdf_uploader_{st.session_state['uploader_key']}")
         
-        if st.button("Analizar con IA y Generar PDF", type="primary") and archivos:
+        # Alineamos los botones uno al lado del otro
+        col_btn1, col_btn2, _ = st.columns([2.5, 2.5, 4])
+        with col_btn1:
+            btn_analizar = st.button("Analizar con IA y Generar PDF", type="primary")
+        with col_btn2:
+            if st.button("🗑️ Eliminar archivos adjuntos", use_container_width=True):
+                st.session_state["uploader_key"] += 1
+                st.rerun()
+        
+        if btn_analizar and archivos:
             with st.spinner("🧠 Analizando documentos con Gemini 2.5 Flash..."):
                 try:
                     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
