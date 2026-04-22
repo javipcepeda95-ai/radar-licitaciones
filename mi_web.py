@@ -303,7 +303,7 @@ if check_password():
         with st.expander("Menu", expanded=False):
             opcion = st.radio(
                 "", 
-                ["🔍 Búsqueda Licitaciones", "📁 Historial Licitaciones", "📄 Generación Informes"],
+                ["🔍 Búsqueda Licitaciones", "📁 Archivo e Informes", "📄 Generación Informes"],
                 label_visibility="collapsed"
             )
         
@@ -326,7 +326,7 @@ if check_password():
 
     # --- VISTA 1: BÚSQUEDA ---
     if "Búsqueda" in opcion:
-        mostrar_cabecera("Búsqueda de Licitaciones", "lupa")
+        mostrar_cabecera("Buscador de Licitaciones", "lupa")
         st.write("Escaner en tiempo real de la Plataforma de Contratación del Estado.")
         
         if st.button("Actualizar y Buscar Ahora", type="primary"):
@@ -399,13 +399,13 @@ if check_password():
                     st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones en las últimas {paginas_leidas} páginas del Estado!")
                     st.dataframe(pd.DataFrame(nuevas), column_config=config_tabla, hide_index=True, use_container_width=True)
                 elif len(encontradas) > 0: 
-                    st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Historial Licitaciones'. No hay novedades recientes.")
+                    st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
                 else: 
                     st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave.")
 
     # --- VISTA 2: ARCHIVO ---
-    elif "Historial" in opcion:
-        mostrar_cabecera("Historial Licitaciones", "carpeta")
+    elif "Archivo" in opcion:
+        mostrar_cabecera("Historial de Licitaciones", "carpeta")
         hist = cargar_historial()
         if hist:
             df = pd.DataFrame(list(reversed(hist)))
