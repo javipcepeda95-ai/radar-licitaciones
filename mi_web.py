@@ -55,7 +55,7 @@ st.markdown(
             background-color: var(--coral-red) !important;
             color: white !important;
             border: none !important;
-            padding: 0.6rem 2rem !important;
+            padding: 0.4rem 1rem !important; /* Ajustado para hacerlos más compactos */
             font-weight: 600 !important;
             border-radius: 8px !important;
         }
@@ -438,12 +438,12 @@ if check_password():
             
         archivos = st.file_uploader("Subir pliegos", type="pdf", accept_multiple_files=True, key=f"pdf_uploader_{st.session_state['uploader_key']}")
         
-        # Alineamos los botones uno al lado del otro
-        col_btn1, col_btn2, _ = st.columns([2.5, 2.5, 4])
+        # Alineamos los botones de forma más compacta con "gap" estrecho
+        col_btn1, col_btn2, _ = st.columns([1.5, 1.5, 6], gap="small")
         with col_btn1:
-            btn_analizar = st.button("Analizar con IA y Generar PDF", type="primary")
+            btn_analizar = st.button("Genera Analisis", type="primary", use_container_width=True)
         with col_btn2:
-            if st.button("🗑️ Eliminar archivos adjuntos", use_container_width=True):
+            if st.button("Eliminar Adjuntos", use_container_width=True):
                 st.session_state["uploader_key"] += 1
                 st.rerun()
         
