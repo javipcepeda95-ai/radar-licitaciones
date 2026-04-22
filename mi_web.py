@@ -8,6 +8,7 @@ import os
 import re
 import io
 import tempfile
+import time
 from google import genai
 from xhtml2pdf import pisa
 
@@ -385,12 +386,24 @@ if check_password():
                             rutas.append(tmp.name)
                             docs_ia.append(client.files.upload(file=tmp.name))
                     
-                    # CAMBIADO EXACTAMENTE AL MODELO QUE USAS EN ANALISTA.PY PARA EVITAR ERROR DE CUOTA
-                    response = client.models.generate_content(
-                        model='gemini-2.5-flash', 
-                        contents=[PROMPT_MAESTRO] + docs_ia
-                    )
+                    # === REINTENTOS AUTOMÁTICOS PARA EVITAR ERROR 503 ===
+                    max_reintentos = 3
+                    response = None
                     
+                    for intento in range(max_reintentos):
+                        try:
+                            response = client.models.generate_content(
+                                model='gemini-2.5-flash', 
+                                contents=[PROMPT_MAESTRO] + docs_ia
+                            )
+                            break # Si funciona, salimos del bucle
+                        except Exception as api_e:
+                            if "503" in str(api_e) or "UNAVAILABLE" in str(api_e):
+                                if intento < max_reintentos - 1:
+                                    time.sleep(2) # Esperar 2 segundos antes de reintentar
+                                    continue
+                            raise api_e # Si no es 503 o se acaban los intentos, lanza el error
+
                     for r in rutas: os.remove(r)
                     
                     datos = json.loads(response.text.strip().replace("```json", "").replace("```", ""))
@@ -502,4 +515,10 @@ if check_password():
                     st.download_button("📥 Descargar Informe Anerpro", data=pdf_buf.getvalue(), file_name=f"Analisis_{datetime.now().strftime('%Y%m%d')}.pdf", mime="application/pdf")
                 
                 except Exception as e: 
-                    st.error(f"Error en el proceso: {e}")
+                    error_str = str(e)
+                    if "503" in error_str or "UNAVAILABLE" in error_str:
+                        st.warning("⏳ **Servidores muy ocupados**: Los servidores de Google Gemini tienen un pico de demanda en este preciso momento. Por favor, espera un par de minutos y vuelve a darle al botón rojo.")
+                    elif "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                        st.error("❌ **Límite de peticiones alcanzado**: Has agotado tu cuota de Gemini. Deberás configurar la facturación en tu cuenta de Google AI Studio para continuar.")
+                    else:
+                        st.error(f"Error en el proceso: {e}")
