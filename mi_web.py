@@ -227,12 +227,26 @@ if check_password():
         return "Ver en PDF"
 
     def extraer_fecha_cierre(e, texto):
-        raw = str(e).lower()
-        m1 = re.search(r"['\"]?(?:cbc_)?enddate['\"]?\s*:\s*['\"](\d{4}-\d{2}-\d{2})", raw)
-        if m1: return datetime.strptime(m1.group(1), "%Y-%m-%d").strftime("%d/%m/%Y")
-        t_limpio = re.sub(r'<[^>]*>', ' ', texto or "").lower()
-        m2 = re.search(r"(?:plazo|presentaci.n|l.mite|hasta).{0,60}?(\d{2}/\d{2}/\d{4})", t_limpio)
-        return m2.group(1) if m2 else "No indicada"
+        try:
+            raw = str(e).lower()
+            m1 = re.search(r"['\"]?(?:cbc_)?enddate['\"]?\s*:\s*['\"](\d{4}-\d{2}-\d{2})", raw)
+            if m1: return datetime.strptime(m1.group(1), "%Y-%m-%d").strftime("%d/%m/%Y")
+        except: pass
+        if texto:
+            try:
+                m_html = re.search(r"(?:plazo|presentaci.n|l.mite|hasta).*?(?:>|:|\s)(?:&nbsp;|\s)*(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})", texto, re.IGNORECASE | re.DOTALL)
+                if m_html: 
+                    f = m_html.group(1)
+                    if "-" in f: return datetime.strptime(f, "%Y-%m-%d").strftime("%d/%m/%Y")
+                    return f
+                t_limpio = re.sub(r'<[^>]*>', ' ', texto).lower()
+                m_txt = re.search(r"(?:plazo|presentaci.n|l.mite|hasta).{0,60}?(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})", t_limpio)
+                if m_txt: 
+                    f = m_txt.group(1)
+                    if "-" in f: return datetime.strptime(f, "%Y-%m-%d").strftime("%d/%m/%Y")
+                    return f
+            except: pass
+        return "No indicada"
 
     def cargar_historial():
         if os.path.exists(ARCHIVO_HISTORIAL):
@@ -293,7 +307,17 @@ if check_password():
                     
                     if coin:
                         f_cierre = extraer_fecha_cierre(e, res)
-                        if f_cierre != "No indicada" and datetime.strptime(f_cierre, "%d/%m/%Y").date() < hoy: continue
+                        
+                        # Blindaje por si la fecha tiene un formato extraño del Estado
+                        es_valida = True
+                        if f_cierre != "No indicada":
+                            try:
+                                if datetime.strptime(f_cierre, "%d/%m/%Y").date() < hoy:
+                                    es_valida = False
+                            except ValueError:
+                                pass # Si la fecha no se puede leer bien, la guardamos por precaución
+                                
+                        if not es_valida: continue
                         
                         encontradas.append({
                             "Publicado": datetime.now().strftime("%d/%m/%Y"),
@@ -314,8 +338,10 @@ if check_password():
                     with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4)
                     st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones!")
                     st.dataframe(pd.DataFrame(nuevas), column_config=config_tabla, hide_index=True, use_container_width=True)
+                elif len(encontradas) > 0: 
+                    st.info(f"Escaneo completado. Se han detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
                 else: 
-                    st.info("No hay nuevas ofertas.")
+                    st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave.")
 
     # --- VISTA 2: ARCHIVO ---
     elif "Archivo" in opcion:
