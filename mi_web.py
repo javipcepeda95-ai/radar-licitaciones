@@ -193,7 +193,7 @@ def check_password():
             with mid_logo:
                 st.image("logo.png", use_container_width=True)
             
-        st.markdown("<h3 style='text-align: center; color: #31333F; margin-top: 10px;'>Analisis de Licitaciones</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; color: #31333F; margin-top: 10px;'>bib analista de licitaciones</h3>", unsafe_allow_html=True)
         
         with st.form("login_form"):
             pwd = st.text_input("Contraseña corporativa:", type="password")
