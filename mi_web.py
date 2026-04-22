@@ -441,7 +441,7 @@ if check_password():
         # Alineamos los botones de forma más compacta con "gap" estrecho
         col_btn1, col_btn2, _ = st.columns([1.5, 1.5, 6], gap="small")
         with col_btn1:
-            btn_analizar = st.button("Genera Analisis", type="primary", use_container_width=True)
+            btn_analizar = st.button("Generar Análisis", type="primary", use_container_width=True)
         with col_btn2:
             if st.button("Eliminar Adjuntos", use_container_width=True):
                 st.session_state["uploader_key"] += 1
@@ -487,6 +487,42 @@ if check_password():
                     
                     datos = json.loads(response.text.strip().replace("```json", "").replace("```", ""))
                     
+                    # === 1. MOSTRAR RESULTADOS EN PANTALLA (PREVISUALIZACIÓN) ===
+                    st.markdown("---")
+                    st.markdown(f"<h2 style='text-align: center; color: var(--anerpro-blue);'>{datos.get('titulo_oferta', 'Análisis de Licitación')}</h2>", unsafe_allow_html=True)
+                    
+                    col_datos, col_alcance = st.columns([1, 1])
+                    
+                    with col_datos:
+                        st.markdown("<h4 style='color: var(--anerpro-blue); margin-bottom: 10px;'>📋 Datos Iniciales</h4>", unsafe_allow_html=True)
+                        df_datos = pd.DataFrame(datos.get('datos_iniciales', []))
+                        if not df_datos.empty and "concepto" in df_datos.columns:
+                            df_datos.columns = ["Concepto", "Detalle"]
+                            st.dataframe(df_datos, hide_index=True, use_container_width=True)
+                            
+                    with col_alcance:
+                        st.markdown("<h4 style='color: var(--anerpro-blue); margin-bottom: 10px;'>🎯 Alcance</h4>", unsafe_allow_html=True)
+                        for item in datos.get('alcance', []):
+                            st.markdown(f"- {item}")
+                            
+                    st.markdown("<h4 style='color: var(--anerpro-blue); margin-top: 20px;'>⚖️ Análisis de Viabilidad</h4>", unsafe_allow_html=True)
+                    col_pros, col_contras = st.columns(2)
+                    with col_pros:
+                        st.markdown("**🟢 VENTAJAS (PROS):**")
+                        for item in datos.get('pros', []):
+                            st.markdown(f"- {item}")
+                    with col_contras:
+                        st.markdown("**🔴 RIESGOS (CONTRAS):**")
+                        for item in datos.get('contras', []):
+                            st.markdown(f"- {item}")
+                            
+                    st.markdown("<h4 style='color: var(--anerpro-blue); margin-top: 20px;'>🏆 Valoración Final</h4>", unsafe_allow_html=True)
+                    st.markdown(f"**PUNTUACIÓN:** {datos.get('valoracion_puntuacion', '')}")
+                    st.info(datos.get('valoracion_texto', ''))
+                    
+                    st.markdown("---")
+                    
+                    # === 2. MAQUETACIÓN CORPORATIVA PARA EL PDF ===
                     html_filas_tabla = ""
                     for fila in datos.get('datos_iniciales', []):
                         html_filas_tabla += f"<tr><td><strong>{fila.get('concepto', '')}</strong></td><td>{fila.get('detalle', '')}</td></tr>\n"
@@ -589,8 +625,12 @@ if check_password():
                     """
                     pdf_buf = io.BytesIO()
                     pisa.CreatePDF(html_final, dest=pdf_buf)
-                    st.success("✅ Informe generado correctamente.")
-                    st.download_button("📥 Descargar Informe Anerpro", data=pdf_buf.getvalue(), file_name=f"Analisis_{datetime.now().strftime('%Y%m%d')}.pdf", mime="application/pdf")
+                    
+                    # Colocamos el botón de descarga centrado debajo del análisis
+                    _, col_descarga, _ = st.columns([1, 2, 1])
+                    with col_descarga:
+                        st.success("✅ Informe PDF listo para descargar.")
+                        st.download_button("📥 Descargar Informe Anerpro (PDF)", data=pdf_buf.getvalue(), file_name=f"Analisis_{datetime.now().strftime('%Y%m%d')}.pdf", mime="application/pdf", use_container_width=True)
                 
                 except Exception as e: 
                     error_str = str(e)
