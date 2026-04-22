@@ -165,7 +165,7 @@ ANALIZA los pliegos adjuntos y DEVUELVE ÚNICA Y EXCLUSIVAMENTE UN OBJETO JSON V
 }
 """
 
-# --- 3. SISTEMA DE SEGURIDAD ---
+# --- 3. SISTEMA DE SEGURIDAD (PANTALLA DE INICIO COMPACTA) ---
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
@@ -173,24 +173,27 @@ def check_password():
     
     st.write("")
     st.write("")
-    col1, col2, col3 = st.columns([1, 1.2, 1])
+    st.write("") # Añadimos más margen arriba para centrar mejor
+    
+    # AJUSTE: Proporción 1.5 - 1 - 1.5 para hacer el recuadro central más estrecho
+    col1, col2, col3 = st.columns([1.5, 1, 1.5])
     
     with col2:
-        # Usamos logo2.png (o png, o jpg) en la pantalla de inicio
+        # AJUSTE: Proporción 1 - 1.2 - 1 dentro del formulario para hacer logo2.png más pequeño
         if os.path.exists("logo2.png"):
-            _, mid_logo, _ = st.columns([0.5, 2, 0.5])
+            _, mid_logo, _ = st.columns([1, 1.2, 1])
             with mid_logo:
                 st.image("logo2.png", use_container_width=True)
-        elif os.path.exists("logo2.jpg"): # Por si acaso es .jpg
-            _, mid_logo, _ = st.columns([0.5, 2, 0.5])
+        elif os.path.exists("logo2.jpg"): 
+            _, mid_logo, _ = st.columns([1, 1.2, 1])
             with mid_logo:
                 st.image("logo2.jpg", use_container_width=True)
-        elif os.path.exists("logo.png"): # Fallback al original si no se encuentra logo2
-            _, mid_logo, _ = st.columns([0.5, 2, 0.5])
+        elif os.path.exists("logo.png"): 
+            _, mid_logo, _ = st.columns([1, 1.2, 1])
             with mid_logo:
                 st.image("logo.png", use_container_width=True)
             
-        st.markdown("<h3 style='text-align: center; color: #31333F; margin-top: 15px;'>Analisis de Licitaciones</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; color: #31333F; margin-top: 10px;'>Analisis de Licitaciones</h3>", unsafe_allow_html=True)
         
         with st.form("login_form"):
             pwd = st.text_input("Contraseña corporativa:", type="password")
@@ -268,14 +271,14 @@ if check_password():
 
     # --- 6. BARRA LATERAL ---
     with st.sidebar:
-        # Logo arriba de forma nativa (Se mantiene logo.png aquí)
+        # Logo original arriba de forma nativa (Se mantiene logo.png aquí)
         if os.path.exists("logo.png"): 
             st.image("logo.png", width=140)
             
         # Raya divisoria bajo el logo
         st.markdown('<hr style="margin: 5px 0px 15px 0px; border-top: 1.5px solid #e6e9ef;">', unsafe_allow_html=True)
         
-        # Expander "Menu"
+        # Expander "Menu" sin el texto de "Navegación"
         with st.expander("Menu", expanded=False):
             opcion = st.radio(
                 "", 
@@ -308,16 +311,16 @@ if check_password():
         if st.button("Actualizar y Buscar Ahora", type="primary"):
             with st.spinner('Conectando con el Estado y paginando hacia atrás (Escaneo Profundo)...'):
                 encontradas = []
-                enlaces_escaneados = set() # Evitar duplicados
+                enlaces_escaneados = set() 
                 hoy = datetime.now().date()
                 
                 url_actual = URL_FEED_BASE
-                paginas_a_escanear = 15 # Unas 1500 licitaciones hacia atrás (aprox. 3-4 días)
+                paginas_a_escanear = 15 # Scanea hacia el pasado ~1500 licitaciones
                 paginas_leidas = 0
                 
                 # Motor de Paginación
                 for pagina in range(paginas_a_escanear):
-                    if not url_actual: break # Si no hay más páginas históricas, paramos
+                    if not url_actual: break 
                     
                     feed = feedparser.parse(url_actual)
                     paginas_leidas += 1
@@ -331,8 +334,6 @@ if check_password():
                         
                         if coin:
                             f_cierre = extraer_fecha_cierre(e, res)
-                            
-                            # Blindaje de fechas
                             es_valida = True
                             if f_cierre != "No indicada":
                                 try:
@@ -343,7 +344,6 @@ if check_password():
                                     
                             if not es_valida: continue
                             
-                            # Extraer fecha real de publicación de la plataforma
                             try: 
                                 f_pub = datetime(*e.published_parsed[:3]).strftime("%d/%m/%Y")
                             except: 
@@ -360,17 +360,14 @@ if check_password():
                                 "Enlace Oficial": e.link
                             })
                             
-                    # Buscar el enlace a la página siguiente (hacia el pasado)
                     url_siguiente = None
                     if hasattr(feed, 'feed') and 'links' in feed.feed:
                         for link in feed.feed.links:
                             if link.get('rel') == 'next':
                                 url_siguiente = link.get('href')
                                 break
-                    
-                    url_actual = url_siguiente # Pasamos a la siguiente url
+                    url_actual = url_siguiente 
                 
-                # Gestión del historial
                 hist = cargar_historial()
                 vistos = {o["Enlace Oficial"] for o in hist}
                 nuevas = [o for o in encontradas if o["Enlace Oficial"] not in vistos]
@@ -427,12 +424,12 @@ if check_password():
                             rutas.append(tmp.name)
                             docs_ia.append(client.files.upload(file=tmp.name))
                     
-                    # === SISTEMA ANTICAÍDAS AVANZADO (EXPONENTIAL BACKOFF) ===
+                    # Exponential Backoff por si Google se cae (error 503)
                     max_reintentos = 5
                     response = None
                     tiempo_espera = 2
                     
-                    aviso_estado = st.empty() # Contenedor para avisar al usuario sin ensuciar la pantalla
+                    aviso_estado = st.empty() 
                     
                     for intento in range(max_reintentos):
                         try:
@@ -440,24 +437,22 @@ if check_password():
                                 model='gemini-2.5-flash', 
                                 contents=[PROMPT_MAESTRO] + docs_ia
                             )
-                            aviso_estado.empty() # Limpiar aviso si funciona
-                            break # Si funciona, salimos del bucle
+                            aviso_estado.empty() 
+                            break 
                         except Exception as api_e:
                             error_str = str(api_e)
-                            # Capturamos el 503 (Servidor saturado) o 429 (Límite de cuota)
                             if "503" in error_str or "UNAVAILABLE" in error_str or "429" in error_str:
                                 if intento < max_reintentos - 1:
                                     aviso_estado.warning(f"⏳ Los servidores de Google están saturados ahora mismo. Forzando reintento en {tiempo_espera}s... (Intento {intento + 1}/{max_reintentos})")
                                     time.sleep(tiempo_espera)
-                                    tiempo_espera *= 2 # Multiplicamos el tiempo de espera: 2s, 4s, 8s, 16s...
+                                    tiempo_espera *= 2
                                     continue
-                            raise api_e # Si se acaban los intentos o es un error grave, lo lanzamos
+                            raise api_e
 
                     for r in rutas: os.remove(r)
                     
                     datos = json.loads(response.text.strip().replace("```json", "").replace("```", ""))
                     
-                    # MAQUETACIÓN CORPORATIVA IMPORTADA EXACTAMENTE DE ANALISTA.PY
                     html_filas_tabla = ""
                     for fila in datos.get('datos_iniciales', []):
                         html_filas_tabla += f"<tr><td><strong>{fila.get('concepto', '')}</strong></td><td>{fila.get('detalle', '')}</td></tr>\n"
@@ -466,7 +461,7 @@ if check_password():
                     html_pros = "".join([f"<li>{i}</li>" for i in datos.get('pros', [])])
                     html_contras = "".join([f"<li>{i}</li>" for i in datos.get('contras', [])])
                     
-                    ruta_logo = os.path.abspath("logo.png") # Se mantiene logo.png para el PDF
+                    ruta_logo = os.path.abspath("logo.png") 
                     etiqueta_logo = f'<img src="{ruta_logo}" height="25" />' if os.path.exists(ruta_logo) else ''
                     
                     html_final = f"""
@@ -566,8 +561,8 @@ if check_password():
                 except Exception as e: 
                     error_str = str(e)
                     if "503" in error_str or "UNAVAILABLE" in error_str:
-                        st.error("❌ **Google Gemini Caído**: Los servidores están sufriendo una caída o pico extremo de demanda. El sistema ha intentado forzar la conexión 5 veces sin éxito. Por favor, inténtalo de nuevo en 5-10 minutos.")
+                        st.error("❌ **Google Gemini Caído**: Los servidores están sufriendo una caída temporal. Inténtalo de nuevo en unos minutos.")
                     elif "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
-                        st.error("❌ **Límite de peticiones alcanzado**: Has agotado tu cuota límite de Gemini. Si el problema persiste, revisa tu cuenta de Google AI Studio.")
+                        st.error("❌ **Límite alcanzado**: Has agotado tu cuota de Gemini. Revisa Google AI Studio.")
                     else:
-                        st.error(f"Error interno en el proceso: {e}")
+                        st.error(f"Error interno: {e}")
