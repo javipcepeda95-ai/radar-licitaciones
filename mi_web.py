@@ -386,9 +386,12 @@ if check_password():
                             rutas.append(tmp.name)
                             docs_ia.append(client.files.upload(file=tmp.name))
                     
-                    # === REINTENTOS AUTOMÁTICOS PARA EVITAR ERROR 503 ===
-                    max_reintentos = 3
+                    # === SISTEMA ANTICAÍDAS AVANZADO (EXPONENTIAL BACKOFF) ===
+                    max_reintentos = 5
                     response = None
+                    tiempo_espera = 2
+                    
+                    aviso_estado = st.empty() # Contenedor para avisar al usuario sin ensuciar la pantalla
                     
                     for intento in range(max_reintentos):
                         try:
@@ -396,13 +399,18 @@ if check_password():
                                 model='gemini-2.5-flash', 
                                 contents=[PROMPT_MAESTRO] + docs_ia
                             )
+                            aviso_estado.empty() # Limpiar aviso si funciona
                             break # Si funciona, salimos del bucle
                         except Exception as api_e:
-                            if "503" in str(api_e) or "UNAVAILABLE" in str(api_e):
+                            error_str = str(api_e)
+                            # Capturamos el 503 (Servidor saturado) o 429 (Límite de cuota)
+                            if "503" in error_str or "UNAVAILABLE" in error_str or "429" in error_str:
                                 if intento < max_reintentos - 1:
-                                    time.sleep(2) # Esperar 2 segundos antes de reintentar
+                                    aviso_estado.warning(f"⏳ Los servidores de Google están saturados ahora mismo. Forzando reintento en {tiempo_espera}s... (Intento {intento + 1}/{max_reintentos})")
+                                    time.sleep(tiempo_espera)
+                                    tiempo_espera *= 2 # Multiplicamos el tiempo de espera: 2s, 4s, 8s, 16s...
                                     continue
-                            raise api_e # Si no es 503 o se acaban los intentos, lanza el error
+                            raise api_e # Si se acaban los intentos o es un error grave, lo lanzamos
 
                     for r in rutas: os.remove(r)
                     
@@ -517,8 +525,8 @@ if check_password():
                 except Exception as e: 
                     error_str = str(e)
                     if "503" in error_str or "UNAVAILABLE" in error_str:
-                        st.warning("⏳ **Servidores muy ocupados**: Los servidores de Google Gemini tienen un pico de demanda en este preciso momento. Por favor, espera un par de minutos y vuelve a darle al botón rojo.")
+                        st.error("❌ **Google Gemini Caído**: Los servidores están sufriendo una caída o pico extremo de demanda. El sistema ha intentado forzar la conexión 5 veces sin éxito. Por favor, inténtalo de nuevo en 5-10 minutos.")
                     elif "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
-                        st.error("❌ **Límite de peticiones alcanzado**: Has agotado tu cuota de Gemini. Deberás configurar la facturación en tu cuenta de Google AI Studio para continuar.")
+                        st.error("❌ **Límite de peticiones alcanzado**: Has agotado tu cuota límite de Gemini. Si el problema persiste, revisa tu cuenta de Google AI Studio.")
                     else:
-                        st.error(f"Error en el proceso: {e}")
+                        st.error(f"Error interno en el proceso: {e}")
