@@ -195,12 +195,8 @@ def check_password():
 
 if check_password():
     # --- 4. CONFIGURACIÓN ---
-    # Ampliamos a 3 canales de sindicación para hacer un "escaneo profundo" de varios días atrás
-    URLS_FEED = [
-        "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom",
-        "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto2.atom",
-        "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto1.atom"
-    ]
+    # Enlace base. A partir de aquí el motor paginará automáticamente.
+    URL_FEED_BASE = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     KEYWORDS = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
 
@@ -301,19 +297,24 @@ if check_password():
         st.write("Escaner en tiempo real de la Plataforma de Contratación del Estado.")
         
         if st.button("Actualizar y Buscar Ahora", type="primary"):
-            with st.spinner('Conectando con el Estado (Escaneo profundo en 3 canales)...'):
+            with st.spinner('Conectando con el Estado y paginando hacia atrás (Escaneo Profundo)...'):
                 encontradas = []
-                enlaces_escaneados = set() # Evitar duplicados si una oferta está repetida en varios canales
+                enlaces_escaneados = set() # Evitar duplicados
                 hoy = datetime.now().date()
                 
-                # Rastrear los 3 canales uno tras otro
-                for url in URLS_FEED:
-                    feed = feedparser.parse(url)
+                url_actual = URL_FEED_BASE
+                paginas_a_escanear = 15 # Unas 1500 licitaciones hacia atrás (aprox. 3-4 días)
+                paginas_leidas = 0
+                
+                # Motor de Paginación
+                for pagina in range(paginas_a_escanear):
+                    if not url_actual: break # Si no hay más páginas históricas, paramos
+                    
+                    feed = feedparser.parse(url_actual)
+                    paginas_leidas += 1
                     
                     for e in feed.entries:
-                        # Si ya la hemos capturado en este escaneo, pasamos a la siguiente
-                        if e.link in enlaces_escaneados:
-                            continue
+                        if e.link in enlaces_escaneados: continue
                             
                         res = e.summary if 'summary' in e else ""
                         txt = normalizar(e.title + " " + res)
@@ -322,20 +323,26 @@ if check_password():
                         if coin:
                             f_cierre = extraer_fecha_cierre(e, res)
                             
-                            # Blindaje por si la fecha tiene un formato extraño del Estado
+                            # Blindaje de fechas
                             es_valida = True
                             if f_cierre != "No indicada":
                                 try:
                                     if datetime.strptime(f_cierre, "%d/%m/%Y").date() < hoy:
                                         es_valida = False
                                 except ValueError:
-                                    pass # Si la fecha no se puede leer bien, la guardamos por precaución
+                                    pass 
                                     
                             if not es_valida: continue
                             
+                            # Extraer fecha real de publicación de la plataforma
+                            try: 
+                                f_pub = datetime(*e.published_parsed[:3]).strftime("%d/%m/%Y")
+                            except: 
+                                f_pub = datetime.now().strftime("%d/%m/%Y")
+                            
                             enlaces_escaneados.add(e.link)
                             encontradas.append({
-                                "Publicado": datetime.now().strftime("%d/%m/%Y"),
+                                "Publicado": f_pub,
                                 "Organismo": extraer_organismo(e, res),
                                 "Título": e.title,
                                 "Importe": extraer_presupuesto(res),
@@ -343,7 +350,18 @@ if check_password():
                                 "Palabras Detectadas": ", ".join(coin),
                                 "Enlace Oficial": e.link
                             })
+                            
+                    # Buscar el enlace a la página siguiente (hacia el pasado)
+                    url_siguiente = None
+                    if hasattr(feed, 'feed') and 'links' in feed.feed:
+                        for link in feed.feed.links:
+                            if link.get('rel') == 'next':
+                                url_siguiente = link.get('href')
+                                break
+                    
+                    url_actual = url_siguiente # Pasamos a la siguiente url
                 
+                # Gestión del historial
                 hist = cargar_historial()
                 vistos = {o["Enlace Oficial"] for o in hist}
                 nuevas = [o for o in encontradas if o["Enlace Oficial"] not in vistos]
@@ -351,10 +369,10 @@ if check_password():
                 if nuevas:
                     hist.extend(nuevas)
                     with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4)
-                    st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones!")
+                    st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones en las últimas {paginas_leidas} páginas del Estado!")
                     st.dataframe(pd.DataFrame(nuevas), column_config=config_tabla, hide_index=True, use_container_width=True)
                 elif len(encontradas) > 0: 
-                    st.info(f"Escaneo completado. Se han detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
+                    st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
                 else: 
                     st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave.")
 
