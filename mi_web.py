@@ -176,7 +176,16 @@ def check_password():
     col1, col2, col3 = st.columns([1, 1.2, 1])
     
     with col2:
-        if os.path.exists("logo.png"):
+        # Usamos logo2.png (o png, o jpg) en la pantalla de inicio
+        if os.path.exists("logo2.png"):
+            _, mid_logo, _ = st.columns([0.5, 2, 0.5])
+            with mid_logo:
+                st.image("logo2.png", use_container_width=True)
+        elif os.path.exists("logo2.jpg"): # Por si acaso es .jpg
+            _, mid_logo, _ = st.columns([0.5, 2, 0.5])
+            with mid_logo:
+                st.image("logo2.jpg", use_container_width=True)
+        elif os.path.exists("logo.png"): # Fallback al original si no se encuentra logo2
             _, mid_logo, _ = st.columns([0.5, 2, 0.5])
             with mid_logo:
                 st.image("logo.png", use_container_width=True)
@@ -259,7 +268,7 @@ if check_password():
 
     # --- 6. BARRA LATERAL ---
     with st.sidebar:
-        # Logo arriba de forma nativa
+        # Logo arriba de forma nativa (Se mantiene logo.png aquí)
         if os.path.exists("logo.png"): 
             st.image("logo.png", width=140)
             
@@ -457,7 +466,7 @@ if check_password():
                     html_pros = "".join([f"<li>{i}</li>" for i in datos.get('pros', [])])
                     html_contras = "".join([f"<li>{i}</li>" for i in datos.get('contras', [])])
                     
-                    ruta_logo = os.path.abspath("logo.png")
+                    ruta_logo = os.path.abspath("logo.png") # Se mantiene logo.png para el PDF
                     etiqueta_logo = f'<img src="{ruta_logo}" height="25" />' if os.path.exists(ruta_logo) else ''
                     
                     html_final = f"""
