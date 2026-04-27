@@ -231,7 +231,7 @@ if check_password():
     # Enlace base. A partir de aquí el motor paginará automáticamente.
     URL_FEED_BASE = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
-    KEYWORDS = ["PERTE", "Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica"]
+    KEYWORDS = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica", "PERTE"]
 
     # --- 5. FUNCIONES DE EXTRACCIÓN ---
     def normalizar(t): return ''.join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn') if t else ""
@@ -329,47 +329,47 @@ if check_password():
         mostrar_cabecera("Buscador de Licitaciones", "lupa")
         st.write("Escaner en tiempo real de la Plataforma de Contratación del Estado.")
         
+        # --- NUEVO: Cuadro de texto dinámico para las palabras clave ---
+        default_kw_str = ", ".join(KEYWORDS)
+        st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
+        keywords_input = st.text_area("", value=default_kw_str, height=100)
+        
+        # Convertimos lo que haya escrito el usuario en una lista real
+        if keywords_input.strip():
+            keywords_activas = [k.strip() for k in keywords_input.split(',') if k.strip()]
+        else:
+            keywords_activas = []
+        
         if st.button("Actualizar y Buscar Ahora", type="primary"):
-            with st.spinner('Conectando con el Estado y paginando hacia atrás (Escaneo Profundo)...'):
-                encontradas = []
-                enlaces_escaneados = set() 
-                hoy = datetime.now().date()
-                
-                url_actual = URL_FEED_BASE
-                paginas_a_escanear = 15 # Scanea hacia el pasado ~1500 licitaciones
-                paginas_leidas = 0
-                
-                # Motor de Paginación
-                for pagina in range(paginas_a_escanear):
-                    if not url_actual: break 
+            if not keywords_activas:
+                st.warning("⚠️ Introduce al menos una palabra clave para iniciar la búsqueda.")
+            else:
+                with st.spinner('Conectando con el Estado y paginando hacia atrás (Escaneo Profundo)...'):
+                    encontradas = []
+                    enlaces_escaneados = set() 
+                    hoy = datetime.now().date()
                     
-                    feed = feedparser.parse(url_actual)
-                    paginas_leidas += 1
+                    url_actual = URL_FEED_BASE
+                    paginas_a_escanear = 15 # Scanea hacia el pasado ~1500 licitaciones
+                    paginas_leidas = 0
                     
-                    for e in feed.entries:
-                        if e.link in enlaces_escaneados: continue
-                            
-                        res = e.summary if 'summary' in e else ""
-                        txt = normalizar(e.title + " " + res)
-                        coin = sorted(list(set([k.upper() for k in KEYWORDS if normalizar(k) in txt])))
+                    # Motor de Paginación
+                    for pagina in range(paginas_a_escanear):
+                        if not url_actual: break 
                         
-                        if coin:
-                            f_cierre = extraer_fecha_cierre(e, res)
-                            es_valida = True
-                            if f_cierre != "No indicada":
-                                try:
-                                    if datetime.strptime(f_cierre, "%d/%m/%Y").date() < hoy:
-                                        es_valida = False
-                                except ValueError:
-                                    pass 
-                                    
-                            if not es_valida: continue
+                        feed = feedparser.parse(url_actual)
+                        paginas_leidas += 1
+                        
+                        for e in feed.entries:
+                            if e.link in enlaces_escaneados: continue
+                                
+                            res = e.summary if 'summary' in e else ""
+                            txt = normalizar(e.title + " " + res)
                             
-                            try: 
-                                f_pub = datetime(*e.published_parsed[:3]).strftime("%d/%m/%Y")
-                            except: 
-                                f_pub = datetime.now().strftime("%d/%m/%Y")
+                            # Usamos la lista de palabras clave introducida por el usuario
+                            coin = sorted(list(set([k.upper() for k in keywords_activas if normalizar(k) in txt])))
                             
+                            if coin:
                             enlaces_escaneados.add(e.link)
                             encontradas.append({
                                 "Publicado": f_pub,
