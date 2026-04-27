@@ -258,7 +258,7 @@ if check_password():
             if m: return formatear_moneda(m.group(1).strip())
         return "Ver en PDF"
 
-    # NUEVO: Lógica a prueba de balas contra espacios invisibles
+    # Lógica a prueba de balas contra espacios invisibles
     def extraer_valor_numerico(res):
         if not res: return None
         t = re.sub(r'<[^>]*>', ' ', res)
@@ -266,7 +266,6 @@ if check_password():
             m = re.search(p, t, re.I)
             if m:
                 val_str = m.group(1)
-                # Esta línea es vital: destruye todo lo que no sean números, puntos o comas
                 l = "".join(c for c in str(val_str) if c.isdigit() or c in ".,")
                 if "." in l and "," in l: 
                     l = l.replace(".", "").replace(",", ".")
@@ -342,13 +341,15 @@ if check_password():
         
         default_kw_str = ", ".join(KEYWORDS)
         
-        st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
-        keywords_input = st.text_area("", value=default_kw_str, height=100)
-            
-        col_espacio, col_importe = st.columns([3, 1])
+        # INVERTIDO: Importe mínimo a la izquierda, Palabras clave a la derecha
+        col_importe, col_espacio = st.columns([1, 3])
         with col_importe:
             st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
             limite_presupuesto = st.number_input("", value=200000, step=50000, format="%d")
+            
+        with col_espacio:
+            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
+            keywords_input = st.text_area("", value=default_kw_str, height=100)
         
         if keywords_input.strip():
             keywords_activas = [k.strip() for k in keywords_input.split(',') if k.strip()]
@@ -395,7 +396,6 @@ if check_password():
                                         
                                 if not es_valida: continue
                                 
-                                # --- FILTRO POR IMPORTE MÍNIMO CORREGIDO ---
                                 val_num = extraer_valor_numerico(res)
                                 if val_num is not None and val_num < limite_presupuesto:
                                     ofertas_descartadas_por_precio += 1
