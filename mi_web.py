@@ -341,15 +341,15 @@ if check_password():
         
         default_kw_str = ", ".join(KEYWORDS)
         
-        # INVERTIDO: Importe mínimo a la izquierda, Palabras clave a la derecha
-        col_importe, col_espacio = st.columns([1, 3])
+        # Cuadro de palabras clave arriba, ocupando todo el ancho
+        st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
+        keywords_input = st.text_area("", value=default_kw_str, height=100)
+        
+        # Importe mínimo debajo, alineado a la izquierda
+        col_importe, col_vacia = st.columns([1, 3])
         with col_importe:
             st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
             limite_presupuesto = st.number_input("", value=200000, step=50000, format="%d")
-            
-        with col_espacio:
-            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
-            keywords_input = st.text_area("", value=default_kw_str, height=100)
         
         if keywords_input.strip():
             keywords_activas = [k.strip() for k in keywords_input.split(',') if k.strip()]
