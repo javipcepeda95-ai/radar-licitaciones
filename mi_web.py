@@ -261,6 +261,21 @@ if check_password():
             if m: return formatear_moneda(m.group(1).strip())
         return "Ver en PDF"
 
+    # Nueva función para extraer el importe como número real para filtrar
+    def extraer_valor_numerico(res):
+        if not res: return None
+        t = re.sub(r'<[^>]*>', ' ', res)
+        for p in [r"(?:Importe|Valor estimado):\s*([\d\.]+(?:,\d{1,2})?)", r"([\d\.]+(?:\d{3})?,\d{2})\s*(?:EUR|€)"]:
+            m = re.search(p, t, re.I)
+            if m:
+                val_str = m.group(1).strip()
+                val_str = val_str.replace('.', '').replace(',', '.')
+                try:
+                    return float(val_str)
+                except:
+                    return None
+        return None
+
     def extraer_fecha_cierre(e, texto):
         try:
             raw = str(e).lower()
@@ -329,10 +344,17 @@ if check_password():
         mostrar_cabecera("Buscador de Licitaciones", "lupa")
         st.write("Escaner en tiempo real de la Plataforma de Contratación del Estado.")
         
-        # --- NUEVO: Cuadro de texto dinámico para las palabras clave ---
-        default_kw_str = ", ".join(KEYWORDS)
-        st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
-        keywords_input = st.text_area("", value=default_kw_str, height=100)
+        # --- Controles dinámicos para Palabras Clave e Importe Mínimo ---
+        col_filtros1, col_filtros2 = st.columns([3, 1])
+        
+        with col_filtros1:
+            default_kw_str = ", ".join(KEYWORDS)
+            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
+            keywords_input = st.text_area("", value=default_kw_str, height=100)
+            
+        with col_filtros2:
+            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
+            limite_presupuesto = st.number_input("", value=200000, step=50000, format="%d")
         
         # Convertimos lo que haya escrito el usuario en una lista real
         if keywords_input.strip():
@@ -381,6 +403,12 @@ if check_password():
                                         
                                 if not es_valida: continue
                                 
+                                # --- FILTRO POR IMPORTE MÍNIMO ---
+                                val_num = extraer_valor_numerico(res)
+                                # Descartamos si logramos leer el importe y es menor al límite
+                                if val_num is not None and val_num < limite_presupuesto:
+                                    continue
+                                
                                 try: 
                                     f_pub = datetime(*e.published_parsed[:3]).strftime("%d/%m/%Y")
                                 except: 
@@ -417,7 +445,7 @@ if check_password():
                     elif len(encontradas) > 0: 
                         st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
                     else: 
-                        st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave.")
+                        st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave y tu límite de presupuesto.")
 
     # --- VISTA 2: ARCHIVO ---
     elif "Archivo" in opcion:
