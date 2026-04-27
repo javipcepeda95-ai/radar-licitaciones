@@ -55,7 +55,7 @@ st.markdown(
             background-color: var(--coral-red) !important;
             color: white !important;
             border: none !important;
-            padding: 0.4rem 1rem !important; /* Ajustado para hacerlos más compactos */
+            padding: 0.4rem 1rem !important; 
             font-weight: 600 !important;
             border-radius: 8px !important;
         }
@@ -160,7 +160,7 @@ def mostrar_cabecera(titulo, tipo_icono="radar"):
         """, unsafe_allow_html=True
     )
 
-# --- PROMPT MAESTRO (Importado exactamente de analista.py) ---
+# --- PROMPT MAESTRO ---
 PROMPT_MAESTRO = """
 Actúa como un Analista Experto en Contratación Pública. Contexto: ANERPRO es empresa EPCista (ciclo del agua, MT/BT, biogás, automatización). ROLECE: I-5-2; I-6-3; I-8-1; I-9-3; J-2-3; J-3-2; J-4-3; J-5-4; K-9-1; O-4-1; P-1-1; P-2-3; P-3-3; P-5-1; Q-1-3.
 
@@ -194,13 +194,11 @@ def check_password():
     
     st.write("")
     st.write("")
-    st.write("") # Añadimos más margen arriba para centrar mejor
+    st.write("")
     
-    # AJUSTE: Proporción 1.5 - 1 - 1.5 para hacer el recuadro central más estrecho
     col1, col2, col3 = st.columns([1.5, 1, 1.5])
     
     with col2:
-        # AJUSTE: Proporción 1 - 1.2 - 1 dentro del formulario para hacer logo2.png más pequeño
         if os.path.exists("logo2.png"):
             _, mid_logo, _ = st.columns([1, 1.2, 1])
             with mid_logo:
@@ -228,7 +226,6 @@ def check_password():
 
 if check_password():
     # --- 4. CONFIGURACIÓN ---
-    # Enlace base. A partir de aquí el motor paginará automáticamente.
     URL_FEED_BASE = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
     KEYWORDS = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica", "PERTE"]
@@ -256,22 +253,27 @@ if check_password():
     def extraer_presupuesto(res):
         if not res: return "Ver en PDF"
         t = re.sub(r'<[^>]*>', ' ', res)
-        for p in [r"(?:Importe|Valor estimado):\s*([\d\.]+(?:,\d{1,2})?)", r"([\d\.]+(?:\d{3})?,\d{2})\s*(?:EUR|€)"]:
+        for p in [r"(?:Importe|Valor estimado|Presupuesto)[\s\w]*:\s*([\d\.\s]+(?:,\d{1,2})?)", r"([\d\.\s]+(?:\d{3})?,\d{2})\s*(?:EUR|€)"]:
             m = re.search(p, t, re.I)
             if m: return formatear_moneda(m.group(1).strip())
         return "Ver en PDF"
 
-    # Nueva función para extraer el importe como número real para filtrar
+    # NUEVO: Lógica a prueba de balas contra espacios invisibles
     def extraer_valor_numerico(res):
         if not res: return None
         t = re.sub(r'<[^>]*>', ' ', res)
-        for p in [r"(?:Importe|Valor estimado):\s*([\d\.]+(?:,\d{1,2})?)", r"([\d\.]+(?:\d{3})?,\d{2})\s*(?:EUR|€)"]:
+        for p in [r"(?:Importe|Valor estimado|Presupuesto)[\s\w]*:\s*([\d\.\s]+(?:,\d{1,2})?)", r"([\d\.\s]+(?:\d{3})?,\d{2})\s*(?:EUR|€)"]:
             m = re.search(p, t, re.I)
             if m:
-                val_str = m.group(1).strip()
-                val_str = val_str.replace('.', '').replace(',', '.')
+                val_str = m.group(1)
+                # Esta línea es vital: destruye todo lo que no sean números, puntos o comas
+                l = "".join(c for c in str(val_str) if c.isdigit() or c in ".,")
+                if "." in l and "," in l: 
+                    l = l.replace(".", "").replace(",", ".")
+                elif "," in l: 
+                    l = l.replace(",", ".")
                 try:
-                    return float(val_str)
+                    return float(l)
                 except:
                     return None
         return None
@@ -307,14 +309,11 @@ if check_password():
 
     # --- 6. BARRA LATERAL ---
     with st.sidebar:
-        # Logo original arriba de forma nativa (Se mantiene logo.png aquí)
         if os.path.exists("logo.png"): 
             st.image("logo.png", width=140)
             
-        # Raya divisoria bajo el logo
         st.markdown('<hr style="margin: 5px 0px 15px 0px; border-top: 1.5px solid #e6e9ef;">', unsafe_allow_html=True)
         
-        # Expander "Menu" sin el texto de "Navegación"
         with st.expander("Menu", expanded=False):
             opcion = st.radio(
                 "", 
@@ -322,15 +321,12 @@ if check_password():
                 label_visibility="collapsed"
             )
         
-        # Espaciador nativo para empujar el botón "Cerrar Sesión" al fondo
         st.markdown("<div style='height: 45vh;'></div>", unsafe_allow_html=True)
         
-        # Botón de cierre de sesión
         if st.button("Cerrar Sesión", use_container_width=True):
             st.session_state["password_correct"] = False
             st.rerun()
 
-    # Configuración de tabla
     config_tabla = {
         "Enlace Oficial": st.column_config.LinkColumn("PDF", display_text="Ver Enlace"),
         "Publicado": st.column_config.TextColumn("Publicado", width="small"),
@@ -344,19 +340,16 @@ if check_password():
         mostrar_cabecera("Buscador de Licitaciones", "lupa")
         st.write("Escaner en tiempo real de la Plataforma de Contratación del Estado.")
         
-        # --- Controles dinámicos para Palabras Clave e Importe Mínimo ---
-        col_filtros1, col_filtros2 = st.columns([3, 1])
+        default_kw_str = ", ".join(KEYWORDS)
         
-        with col_filtros1:
-            default_kw_str = ", ".join(KEYWORDS)
-            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
-            keywords_input = st.text_area("", value=default_kw_str, height=100)
+        st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
+        keywords_input = st.text_area("", value=default_kw_str, height=100)
             
-        with col_filtros2:
+        col_espacio, col_importe = st.columns([3, 1])
+        with col_importe:
             st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
             limite_presupuesto = st.number_input("", value=200000, step=50000, format="%d")
         
-        # Convertimos lo que haya escrito el usuario en una lista real
         if keywords_input.strip():
             keywords_activas = [k.strip() for k in keywords_input.split(',') if k.strip()]
         else:
@@ -372,10 +365,10 @@ if check_password():
                     hoy = datetime.now().date()
                     
                     url_actual = URL_FEED_BASE
-                    paginas_a_escanear = 15 # Scanea hacia el pasado ~1500 licitaciones
+                    paginas_a_escanear = 15 
                     paginas_leidas = 0
+                    ofertas_descartadas_por_precio = 0 
                     
-                    # Motor de Paginación
                     for pagina in range(paginas_a_escanear):
                         if not url_actual: break 
                         
@@ -388,7 +381,6 @@ if check_password():
                             res = e.summary if 'summary' in e else ""
                             txt = normalizar(e.title + " " + res)
                             
-                            # Usamos la lista de palabras clave introducida por el usuario
                             coin = sorted(list(set([k.upper() for k in keywords_activas if normalizar(k) in txt])))
                             
                             if coin:
@@ -403,10 +395,10 @@ if check_password():
                                         
                                 if not es_valida: continue
                                 
-                                # --- FILTRO POR IMPORTE MÍNIMO ---
+                                # --- FILTRO POR IMPORTE MÍNIMO CORREGIDO ---
                                 val_num = extraer_valor_numerico(res)
-                                # Descartamos si logramos leer el importe y es menor al límite
                                 if val_num is not None and val_num < limite_presupuesto:
+                                    ofertas_descartadas_por_precio += 1
                                     continue
                                 
                                 try: 
@@ -441,9 +433,13 @@ if check_password():
                         hist.extend(nuevas)
                         with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4)
                         st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones en las últimas {paginas_leidas} páginas del Estado!")
+                        if ofertas_descartadas_por_precio > 0:
+                            st.info(f"🚫 Se han ocultado {ofertas_descartadas_por_precio} ofertas adicionales por no llegar a los {limite_presupuesto:,.0f} € mínimos.")
                         st.dataframe(pd.DataFrame(nuevas), column_config=config_tabla, hide_index=True, use_container_width=True)
                     elif len(encontradas) > 0: 
                         st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
+                        if ofertas_descartadas_por_precio > 0:
+                            st.info(f"🚫 Además, se descartaron en silencio {ofertas_descartadas_por_precio} ofertas por debajo de {limite_presupuesto:,.0f} €.")
                     else: 
                         st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave y tu límite de presupuesto.")
 
@@ -476,13 +472,11 @@ if check_password():
         mostrar_cabecera("Generación de Informes", "documento")
         st.write("Carga los pliegos PDF para generar el informe corporativo.")
         
-        # Llave dinámica para poder "resetear" el file_uploader
         if "uploader_key" not in st.session_state:
             st.session_state["uploader_key"] = 1
             
         archivos = st.file_uploader("Subir pliegos", type="pdf", accept_multiple_files=True, key=f"pdf_uploader_{st.session_state['uploader_key']}")
         
-        # Alineamos los botones de forma más compacta con "gap" estrecho
         col_btn1, col_btn2, _ = st.columns([1.5, 1.5, 6], gap="small")
         with col_btn1:
             btn_analizar = st.button("Generar Análisis", type="primary", use_container_width=True)
@@ -502,7 +496,6 @@ if check_password():
                             rutas.append(tmp.name)
                             docs_ia.append(client.files.upload(file=tmp.name))
                     
-                    # Exponential Backoff por si Google se cae (error 503)
                     max_reintentos = 5
                     response = None
                     tiempo_espera = 2
@@ -531,7 +524,6 @@ if check_password():
                     
                     datos = json.loads(response.text.strip().replace("```json", "").replace("```", ""))
                     
-                    # === 1. MOSTRAR RESULTADOS EN PANTALLA (PREVISUALIZACIÓN) ===
                     st.markdown("---")
                     st.markdown(f"<h2 style='text-align: center; color: var(--anerpro-blue);'>{datos.get('titulo_oferta', 'Análisis de Licitación')}</h2>", unsafe_allow_html=True)
                     
@@ -566,7 +558,6 @@ if check_password():
                     
                     st.markdown("---")
                     
-                    # === 2. MAQUETACIÓN CORPORATIVA PARA EL PDF ===
                     html_filas_tabla = ""
                     for fila in datos.get('datos_iniciales', []):
                         html_filas_tabla += f"<tr><td><strong>{fila.get('concepto', '')}</strong></td><td>{fila.get('detalle', '')}</td></tr>\n"
@@ -670,7 +661,6 @@ if check_password():
                     pdf_buf = io.BytesIO()
                     pisa.CreatePDF(html_final, dest=pdf_buf)
                     
-                    # Colocamos el botón de descarga centrado debajo del análisis
                     _, col_descarga, _ = st.columns([1, 2, 1])
                     with col_descarga:
                         st.success("✅ Informe PDF listo para descargar.")
