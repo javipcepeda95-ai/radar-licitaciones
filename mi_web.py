@@ -370,38 +370,54 @@ if check_password():
                             coin = sorted(list(set([k.upper() for k in keywords_activas if normalizar(k) in txt])))
                             
                             if coin:
-                            enlaces_escaneados.add(e.link)
-                            encontradas.append({
-                                "Publicado": f_pub,
-                                "Organismo": extraer_organismo(e, res),
-                                "Título": e.title,
-                                "Importe": extraer_presupuesto(res),
-                                "Fin Plazo": f_cierre,
-                                "Palabras Detectadas": ", ".join(coin),
-                                "Enlace Oficial": e.link
-                            })
-                            
-                    url_siguiente = None
-                    if hasattr(feed, 'feed') and 'links' in feed.feed:
-                        for link in feed.feed.links:
-                            if link.get('rel') == 'next':
-                                url_siguiente = link.get('href')
-                                break
-                    url_actual = url_siguiente 
-                
-                hist = cargar_historial()
-                vistos = {o["Enlace Oficial"] for o in hist}
-                nuevas = [o for o in encontradas if o["Enlace Oficial"] not in vistos]
-                
-                if nuevas:
-                    hist.extend(nuevas)
-                    with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4)
-                    st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones en las últimas {paginas_leidas} páginas del Estado!")
-                    st.dataframe(pd.DataFrame(nuevas), column_config=config_tabla, hide_index=True, use_container_width=True)
-                elif len(encontradas) > 0: 
-                    st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
-                else: 
-                    st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave.")
+                                f_cierre = extraer_fecha_cierre(e, res)
+                                es_valida = True
+                                if f_cierre != "No indicada":
+                                    try:
+                                        if datetime.strptime(f_cierre, "%d/%m/%Y").date() < hoy:
+                                            es_valida = False
+                                    except ValueError:
+                                        pass 
+                                        
+                                if not es_valida: continue
+                                
+                                try: 
+                                    f_pub = datetime(*e.published_parsed[:3]).strftime("%d/%m/%Y")
+                                except: 
+                                    f_pub = datetime.now().strftime("%d/%m/%Y")
+                                
+                                enlaces_escaneados.add(e.link)
+                                encontradas.append({
+                                    "Publicado": f_pub,
+                                    "Organismo": extraer_organismo(e, res),
+                                    "Título": e.title,
+                                    "Importe": extraer_presupuesto(res),
+                                    "Fin Plazo": f_cierre,
+                                    "Palabras Detectadas": ", ".join(coin),
+                                    "Enlace Oficial": e.link
+                                })
+                                
+                        url_siguiente = None
+                        if hasattr(feed, 'feed') and 'links' in feed.feed:
+                            for link in feed.feed.links:
+                                if link.get('rel') == 'next':
+                                    url_siguiente = link.get('href')
+                                    break
+                        url_actual = url_siguiente 
+                    
+                    hist = cargar_historial()
+                    vistos = {o["Enlace Oficial"] for o in hist}
+                    nuevas = [o for o in encontradas if o["Enlace Oficial"] not in vistos]
+                    
+                    if nuevas:
+                        hist.extend(nuevas)
+                        with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4)
+                        st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones en las últimas {paginas_leidas} páginas del Estado!")
+                        st.dataframe(pd.DataFrame(nuevas), column_config=config_tabla, hide_index=True, use_container_width=True)
+                    elif len(encontradas) > 0: 
+                        st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
+                    else: 
+                        st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave.")
 
     # --- VISTA 2: ARCHIVO ---
     elif "Archivo" in opcion:
