@@ -228,9 +228,24 @@ if check_password():
     # --- 4. CONFIGURACIÓN ---
     URL_FEED_BASE = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
-    KEYWORDS = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica", "PERTE"]
+    ARCHIVO_CONFIG = "config_busqueda.json"  # NUEVO: Archivo de memoria de filtros
+    KEYWORDS_DEFAULT = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica", "PERTE"]
 
-    # --- 5. FUNCIONES DE EXTRACCIÓN ---
+    # --- 5. FUNCIONES DE EXTRACCIÓN Y MEMORIA ---
+    def cargar_configuracion():
+        if os.path.exists(ARCHIVO_CONFIG):
+            try:
+                with open(ARCHIVO_CONFIG, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except: pass
+        return {"keywords": KEYWORDS_DEFAULT, "limite": 200000}
+
+    def guardar_configuracion(keywords, limite):
+        try:
+            with open(ARCHIVO_CONFIG, 'w', encoding='utf-8') as f:
+                json.dump({"keywords": keywords, "limite": limite}, f, indent=4)
+        except: pass
+
     def normalizar(t): return ''.join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn') if t else ""
     
     def formatear_moneda(v):
@@ -258,7 +273,6 @@ if check_password():
             if m: return formatear_moneda(m.group(1).strip())
         return "Ver en PDF"
 
-    # Lógica a prueba de balas contra espacios invisibles
     def extraer_valor_numerico(res):
         if not res: return None
         t = re.sub(r'<[^>]*>', ' ', res)
@@ -339,17 +353,18 @@ if check_password():
         mostrar_cabecera("Buscador de Licitaciones", "lupa")
         st.write("Escaner en tiempo real de la Plataforma de Contratación del Estado.")
         
-        default_kw_str = ", ".join(KEYWORDS)
+        # --- CARGAR CONFIGURACIÓN GUARDADA ---
+        config_actual = cargar_configuracion()
+        default_kw_str = ", ".join(config_actual.get("keywords", KEYWORDS_DEFAULT))
+        default_limite = int(config_actual.get("limite", 200000))
         
-        # Cuadro de palabras clave arriba, ocupando todo el ancho
         st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
         keywords_input = st.text_area("", value=default_kw_str, height=100)
-        
-        # Importe mínimo debajo, alineado a la izquierda
+            
         col_importe, col_vacia = st.columns([1, 3])
         with col_importe:
             st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
-            limite_presupuesto = st.number_input("", value=200000, step=50000, format="%d")
+            limite_presupuesto = st.number_input("", value=default_limite, step=50000, format="%d")
         
         if keywords_input.strip():
             keywords_activas = [k.strip() for k in keywords_input.split(',') if k.strip()]
@@ -360,6 +375,9 @@ if check_password():
             if not keywords_activas:
                 st.warning("⚠️ Introduce al menos una palabra clave para iniciar la búsqueda.")
             else:
+                # --- GUARDAR CONFIGURACIÓN ACTUALIZADA ---
+                guardar_configuracion(keywords_activas, limite_presupuesto)
+                
                 with st.spinner('Conectando con el Estado y paginando hacia atrás (Escaneo Profundo)...'):
                     encontradas = []
                     enlaces_escaneados = set() 
