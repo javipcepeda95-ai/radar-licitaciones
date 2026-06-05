@@ -228,7 +228,7 @@ if check_password():
     # --- 4. CONFIGURACIÓN ---
     URL_FEED_BASE = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
     ARCHIVO_HISTORIAL = "historial_licitaciones.json"
-    ARCHIVO_CONFIG = "config_busqueda.json"  # NUEVO: Archivo de memoria de filtros
+    ARCHIVO_CONFIG = "config_busqueda.json"
     KEYWORDS_DEFAULT = ["Confederación", "Hidrográfica", "Canales", "energia", "nuclear", "hidrogeno", "eficiencia", "energetica", "energética", "cae", "biomasa", "biogas", "edar", "tratamiento", "agua", "automatizacion", "industria 4.0", "scada", "certificado", "autoconsumo", "plc", "desalinizacion", "desaladora", "ciclo del agua", "telecontrol", "digitalizacion industrial", "gemelo digital", "auditoria energetica", "PERTE"]
 
     # --- 5. FUNCIONES DE EXTRACCIÓN Y MEMORIA ---
@@ -258,45 +258,56 @@ if check_password():
         except: return v
 
     def extraer_organismo(e, res):
-        m = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", res, re.I | re.S)
-        if m: 
-            return re.sub(r'<[^>]*>', '', m.group(1).strip())
-        elif e.get('author'): 
-            return e.author
+        try:
+            m = re.search(r"(?:Órgano de Contratación|Organo de Contratacion):\s*(.*?)(?:;|\n|\||<|$)", res, re.I | re.S)
+            if m: 
+                return re.sub(r'<[^>]*>', '', m.group(1).strip())
+            elif e.get('author'): 
+                return e.author
+        except: pass
         return "No detectado"
 
     def extraer_presupuesto(res):
         if not res: return "Ver en PDF"
-        t = re.sub(r'<[^>]*>', ' ', res)
-        for p in [r"(?:Importe|Valor estimado|Presupuesto)[\s\w]*:\s*([\d\.\s]+(?:,\d{1,2})?)", r"([\d\.\s]+(?:\d{3})?,\d{2})\s*(?:EUR|€)"]:
-            m = re.search(p, t, re.I)
-            if m: return formatear_moneda(m.group(1).strip())
+        try:
+            t = re.sub(r'<[^>]*>', ' ', res)
+            for p in [r"(?:Importe|Valor estimado|Presupuesto)[\s\w]*:\s*([\d\.\s]+(?:,\d{1,2})?)", r"([\d\.\s]+(?:\d{3})?,\d{2})\s*(?:EUR|€)"]:
+                m = re.search(p, t, re.I)
+                if m: return formatear_moneda(m.group(1).strip())
+        except: pass
         return "Ver en PDF"
 
+    # ESACANER NUMERICO BLINDADO
     def extraer_valor_numerico(res):
         if not res: return None
-        t = re.sub(r'<[^>]*>', ' ', res)
-        for p in [r"(?:Importe|Valor estimado|Presupuesto)[\s\w]*:\s*([\d\.\s]+(?:,\d{1,2})?)", r"([\d\.\s]+(?:\d{3})?,\d{2})\s*(?:EUR|€)"]:
-            m = re.search(p, t, re.I)
-            if m:
-                val_str = m.group(1)
-                l = "".join(c for c in str(val_str) if c.isdigit() or c in ".,")
-                if "." in l and "," in l: 
-                    l = l.replace(".", "").replace(",", ".")
-                elif "," in l: 
-                    l = l.replace(",", ".")
-                try:
-                    return float(l)
-                except:
-                    return None
-        return None
+        try:
+            t = re.sub(r'<[^>]*>', ' ', res)
+            for p in [r"(?:Importe|Valor estimado|Presupuesto)[\s\w]*:\s*([\d\.\s]+(?:,\d{1,2})?)", r"([\d\.\s]+(?:\d{3})?,\d{2})\s*(?:EUR|€)"]:
+                m = re.search(p, t, re.I)
+                if m:
+                    val_str = m.group(1)
+                    l = "".join(c for c in str(val_str) if c.isdigit() or c in ".,")
+                    if "." in l and "," in l: 
+                        l = l.replace(".", "").replace(",", ".")
+                    elif "," in l: 
+                        l = l.replace(",", ".")
+                    try:
+                        return float(l)
+                    except ValueError:
+                        return None
+        except Exception:
+            pass
+        return None # Ante la duda, devuelve None para no descartarlo
 
+    # ESCANER DE FECHAS BLINDADO Y A PRUEBA DE FALLOS
     def extraer_fecha_cierre(e, texto):
         try:
             raw = str(e).lower()
             m1 = re.search(r"['\"]?(?:cbc_)?enddate['\"]?\s*:\s*['\"](\d{4}-\d{2}-\d{2})", raw)
             if m1: return datetime.strptime(m1.group(1), "%Y-%m-%d").strftime("%d/%m/%Y")
-        except: pass
+        except Exception: 
+            pass
+            
         if texto:
             try:
                 m_html = re.search(r"(?:plazo|presentaci.n|l.mite|hasta).*?(?:>|:|\s)(?:&nbsp;|\s)*(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})", texto, re.IGNORECASE | re.DOTALL)
@@ -304,13 +315,16 @@ if check_password():
                     f = m_html.group(1)
                     if "-" in f: return datetime.strptime(f, "%Y-%m-%d").strftime("%d/%m/%Y")
                     return f
+                    
                 t_limpio = re.sub(r'<[^>]*>', ' ', texto).lower()
                 m_txt = re.search(r"(?:plazo|presentaci.n|l.mite|hasta).{0,60}?(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})", t_limpio)
                 if m_txt: 
                     f = m_txt.group(1)
                     if "-" in f: return datetime.strptime(f, "%Y-%m-%d").strftime("%d/%m/%Y")
                     return f
-            except: pass
+            except Exception: 
+                pass
+                
         return "No indicada"
 
     def cargar_historial():
@@ -375,7 +389,7 @@ if check_password():
             if not keywords_activas:
                 st.warning("⚠️ Introduce al menos una palabra clave para iniciar la búsqueda.")
             else:
-                # --- GUARDAR CONFIGURACIÓN ACTUALIZADA ---
+                # GUARDAMOS CONFIGURACION
                 guardar_configuracion(keywords_activas, limite_presupuesto)
                 
                 with st.spinner('Conectando con el Estado y paginando hacia atrás (Escaneo Profundo)...'):
@@ -388,52 +402,70 @@ if check_password():
                     paginas_leidas = 0
                     ofertas_descartadas_por_precio = 0 
                     
+                    # Motor de Paginación Mejorado
                     for pagina in range(paginas_a_escanear):
                         if not url_actual: break 
                         
-                        feed = feedparser.parse(url_actual)
+                        try:
+                            feed = feedparser.parse(url_actual)
+                            # Si el feed no responde o está vacío, pasamos de página
+                            if not feed.entries:
+                                break
+                        except Exception as e:
+                            # st.error(f"Fallo de lectura en página {pagina}: {e}") # Descomentar para debug
+                            break
+                            
                         paginas_leidas += 1
                         
                         for e in feed.entries:
-                            if e.link in enlaces_escaneados: continue
+                            try:
+                                if e.link in enlaces_escaneados: continue
+                                    
+                                res = e.summary if 'summary' in e else ""
+                                txt = normalizar(e.title + " " + res)
                                 
-                            res = e.summary if 'summary' in e else ""
-                            txt = normalizar(e.title + " " + res)
-                            
-                            coin = sorted(list(set([k.upper() for k in keywords_activas if normalizar(k) in txt])))
-                            
-                            if coin:
-                                f_cierre = extraer_fecha_cierre(e, res)
-                                es_valida = True
-                                if f_cierre != "No indicada":
-                                    try:
-                                        if datetime.strptime(f_cierre, "%d/%m/%Y").date() < hoy:
-                                            es_valida = False
-                                    except ValueError:
-                                        pass 
-                                        
-                                if not es_valida: continue
+                                coin = sorted(list(set([k.upper() for k in keywords_activas if normalizar(k) in txt])))
                                 
-                                val_num = extraer_valor_numerico(res)
-                                if val_num is not None and val_num < limite_presupuesto:
-                                    ofertas_descartadas_por_precio += 1
-                                    continue
-                                
-                                try: 
-                                    f_pub = datetime(*e.published_parsed[:3]).strftime("%d/%m/%Y")
-                                except: 
-                                    f_pub = datetime.now().strftime("%d/%m/%Y")
-                                
-                                enlaces_escaneados.add(e.link)
-                                encontradas.append({
-                                    "Publicado": f_pub,
-                                    "Organismo": extraer_organismo(e, res),
-                                    "Título": e.title,
-                                    "Importe": extraer_presupuesto(res),
-                                    "Fin Plazo": f_cierre,
-                                    "Palabras Detectadas": ", ".join(coin),
-                                    "Enlace Oficial": e.link
-                                })
+                                if coin:
+                                    f_cierre = extraer_fecha_cierre(e, res)
+                                    es_valida = True
+                                    
+                                    # Blindaje contra fechas raras
+                                    if f_cierre != "No indicada":
+                                        try:
+                                            # Comprobar formato dd/mm/yyyy
+                                            partes = f_cierre.split('/')
+                                            if len(partes) == 3 and len(partes[2]) == 4:
+                                                fecha_obj = datetime.strptime(f_cierre, "%d/%m/%Y").date()
+                                                if fecha_obj < hoy:
+                                                    es_valida = False
+                                        except Exception:
+                                            pass # Si la fecha está rota, asumimos que es válida para no perderla
+                                            
+                                    if not es_valida: continue
+                                    
+                                    val_num = extraer_valor_numerico(res)
+                                    if val_num is not None and val_num < limite_presupuesto:
+                                        ofertas_descartadas_por_precio += 1
+                                        continue
+                                    
+                                    try: 
+                                        f_pub = datetime(*e.published_parsed[:3]).strftime("%d/%m/%Y")
+                                    except: 
+                                        f_pub = datetime.now().strftime("%d/%m/%Y")
+                                    
+                                    enlaces_escaneados.add(e.link)
+                                    encontradas.append({
+                                        "Publicado": f_pub,
+                                        "Organismo": extraer_organismo(e, res),
+                                        "Título": e.title,
+                                        "Importe": extraer_presupuesto(res),
+                                        "Fin Plazo": f_cierre,
+                                        "Palabras Detectadas": ", ".join(coin),
+                                        "Enlace Oficial": e.link
+                                    })
+                            except Exception as ex_entry:
+                                pass # Si una entrada individual falla, que el bucle siga con la siguiente
                                 
                         url_siguiente = None
                         if hasattr(feed, 'feed') and 'links' in feed.feed:
@@ -460,6 +492,8 @@ if check_password():
                             st.info(f"🚫 Además, se descartaron en silencio {ofertas_descartadas_por_precio} ofertas por debajo de {limite_presupuesto:,.0f} €.")
                     else: 
                         st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave y tu límite de presupuesto.")
+                        if ofertas_descartadas_por_precio > 0:
+                            st.info(f"🚫 Sin embargo, sí se detectaron {ofertas_descartadas_por_precio} ofertas que fueron descartadas por estar por debajo del importe mínimo.")
 
     # --- VISTA 2: ARCHIVO ---
     elif "Archivo" in opcion:
