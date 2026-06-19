@@ -238,12 +238,16 @@ if check_password():
                 with open(ARCHIVO_CONFIG, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except: pass
-        return {"keywords": KEYWORDS_DEFAULT, "limite": 200000}
+        return {"keywords": KEYWORDS_DEFAULT, "limite": 200000, "fecha_minima": datetime.now().strftime("%Y-%m-%d")}
 
-    def guardar_configuracion(keywords, limite):
+    def guardar_configuracion(keywords, limite, fecha_min):
         try:
             with open(ARCHIVO_CONFIG, 'w', encoding='utf-8') as f:
-                json.dump({"keywords": keywords, "limite": limite}, f, indent=4)
+                json.dump({
+                    "keywords": keywords, 
+                    "limite": limite,
+                    "fecha_minima": fecha_min.strftime("%Y-%m-%d")
+                }, f, indent=4)
         except: pass
 
     def normalizar(t): return ''.join(c for c in unicodedata.normalize('NFD', t.lower()) if unicodedata.category(c) != 'Mn') if t else ""
@@ -297,9 +301,9 @@ if check_password():
                         return None
         except Exception:
             pass
-        return None # Ante la duda, devuelve None para no descartarlo
+        return None
 
-    # ESCANER DE FECHAS BLINDADO Y A PRUEBA DE FALLOS
+    # ESCANER DE FECHAS BLINDADO
     def extraer_fecha_cierre(e, texto):
         try:
             raw = str(e).lower()
@@ -371,36 +375,45 @@ if check_password():
         config_actual = cargar_configuracion()
         default_kw_str = ", ".join(config_actual.get("keywords", KEYWORDS_DEFAULT))
         default_limite = int(config_actual.get("limite", 200000))
+        try:
+            default_fecha_str = config_actual.get("fecha_minima", datetime.now().strftime("%Y-%m-%d"))
+            default_fecha = datetime.strptime(default_fecha_str, "%Y-%m-%d").date()
+        except:
+            default_fecha = datetime.now().date()
         
         st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
         keywords_input = st.text_area("", value=default_kw_str, height=100)
             
-        col_importe, col_vacia = st.columns([1, 3])
+        col_importe, col_fecha = st.columns(2)
         with col_importe:
             st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
             limite_presupuesto = st.number_input("", value=default_limite, step=50000, format="%d")
+            
+        with col_fecha:
+            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Fecha mínima Fin de Plazo:</p>", unsafe_allow_html=True)
+            fecha_minima = st.date_input("", value=default_fecha, format="DD/MM/YYYY")
         
         if keywords_input.strip():
             keywords_activas = [k.strip() for k in keywords_input.split(',') if k.strip()]
         else:
             keywords_activas = []
+            
+        # GUARDADO AUTOMÁTICO EN TIEMPO REAL
+        guardar_configuracion(keywords_activas, limite_presupuesto, fecha_minima)
         
         if st.button("Actualizar y Buscar Ahora", type="primary"):
             if not keywords_activas:
                 st.warning("⚠️ Introduce al menos una palabra clave para iniciar la búsqueda.")
             else:
-                # GUARDAMOS CONFIGURACION
-                guardar_configuracion(keywords_activas, limite_presupuesto)
-                
                 with st.spinner('Conectando con el Estado y paginando hacia atrás (Escaneo Profundo)...'):
                     encontradas = []
                     enlaces_escaneados = set() 
-                    hoy = datetime.now().date()
                     
                     url_actual = URL_FEED_BASE
                     paginas_a_escanear = 15 
                     paginas_leidas = 0
                     ofertas_descartadas_por_precio = 0 
+                    ofertas_descartadas_por_fecha = 0 # Nuevo contador
                     
                     # Motor de Paginación Mejorado
                     for pagina in range(paginas_a_escanear):
@@ -408,11 +421,9 @@ if check_password():
                         
                         try:
                             feed = feedparser.parse(url_actual)
-                            # Si el feed no responde o está vacío, pasamos de página
                             if not feed.entries:
                                 break
-                        except Exception as e:
-                            # st.error(f"Fallo de lectura en página {pagina}: {e}") # Descomentar para debug
+                        except Exception:
                             break
                             
                         paginas_leidas += 1
@@ -430,17 +441,17 @@ if check_password():
                                     f_cierre = extraer_fecha_cierre(e, res)
                                     es_valida = True
                                     
-                                    # Blindaje contra fechas raras
+                                    # FILTRO POR FECHA DE CIERRE (Mínimo indicado en la web)
                                     if f_cierre != "No indicada":
                                         try:
-                                            # Comprobar formato dd/mm/yyyy
                                             partes = f_cierre.split('/')
                                             if len(partes) == 3 and len(partes[2]) == 4:
                                                 fecha_obj = datetime.strptime(f_cierre, "%d/%m/%Y").date()
-                                                if fecha_obj < hoy:
+                                                if fecha_obj < fecha_minima:
+                                                    ofertas_descartadas_por_fecha += 1
                                                     es_valida = False
                                         except Exception:
-                                            pass # Si la fecha está rota, asumimos que es válida para no perderla
+                                            pass 
                                             
                                     if not es_valida: continue
                                     
@@ -464,8 +475,8 @@ if check_password():
                                         "Palabras Detectadas": ", ".join(coin),
                                         "Enlace Oficial": e.link
                                     })
-                            except Exception as ex_entry:
-                                pass # Si una entrada individual falla, que el bucle siga con la siguiente
+                            except Exception:
+                                pass 
                                 
                         url_siguiente = None
                         if hasattr(feed, 'feed') and 'links' in feed.feed:
@@ -479,21 +490,28 @@ if check_password():
                     vistos = {o["Enlace Oficial"] for o in hist}
                     nuevas = [o for o in encontradas if o["Enlace Oficial"] not in vistos]
                     
+                    # Mensajes dinámicos de los filtros para informar al usuario
+                    texto_filtros = ""
+                    if ofertas_descartadas_por_precio > 0:
+                        texto_filtros += f"🚫 {ofertas_descartadas_por_precio} descartadas por debajo de {limite_presupuesto:,.0f} €. "
+                    if ofertas_descartadas_por_fecha > 0:
+                        texto_filtros += f"⏳ {ofertas_descartadas_por_fecha} descartadas por caducar antes del {fecha_minima.strftime('%d/%m/%Y')}. "
+
                     if nuevas:
                         hist.extend(nuevas)
                         with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4)
                         st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones en las últimas {paginas_leidas} páginas del Estado!")
-                        if ofertas_descartadas_por_precio > 0:
-                            st.info(f"🚫 Se han ocultado {ofertas_descartadas_por_precio} ofertas adicionales por no llegar a los {limite_presupuesto:,.0f} € mínimos.")
+                        if texto_filtros:
+                            st.info(texto_filtros)
                         st.dataframe(pd.DataFrame(nuevas), column_config=config_tabla, hide_index=True, use_container_width=True)
                     elif len(encontradas) > 0: 
                         st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
-                        if ofertas_descartadas_por_precio > 0:
-                            st.info(f"🚫 Además, se descartaron en silencio {ofertas_descartadas_por_precio} ofertas por debajo de {limite_presupuesto:,.0f} €.")
+                        if texto_filtros:
+                            st.info(texto_filtros)
                     else: 
-                        st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave y tu límite de presupuesto.")
-                        if ofertas_descartadas_por_precio > 0:
-                            st.info(f"🚫 Sin embargo, sí se detectaron {ofertas_descartadas_por_precio} ofertas que fueron descartadas por estar por debajo del importe mínimo.")
+                        st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave y los límites de presupuesto/fecha.")
+                        if texto_filtros:
+                            st.info(f"Sin embargo, sí se encontraron ofertas que no pasaron los filtros: {texto_filtros}")
 
     # --- VISTA 2: ARCHIVO ---
     elif "Archivo" in opcion:
