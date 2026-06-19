@@ -381,27 +381,43 @@ if check_password():
         except:
             default_fecha = datetime.now().date()
         
-        st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
-        keywords_input = st.text_area("", value=default_kw_str, height=100)
-            
-        col_importe, col_fecha = st.columns(2)
-        with col_importe:
-            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
-            limite_presupuesto = st.number_input("", value=default_limite, step=50000, format="%d")
-            
-        with col_fecha:
-            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Fecha mínima Fin de Plazo:</p>", unsafe_allow_html=True)
-            fecha_minima = st.date_input("", value=default_fecha, format="DD/MM/YYYY")
+        # --- CONTENEDOR COMPACTO PARA MEJORAR LA ESTÉTICA ---
+        # Usamos columnas para que los campos no se estiren de lado a lado
+        col_filtros_main, col_vacia = st.columns([2.5, 1.5])
         
-        if keywords_input.strip():
-            keywords_activas = [k.strip() for k in keywords_input.split(',') if k.strip()]
-        else:
-            keywords_activas = []
+        with col_filtros_main:
+            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
+            keywords_input = st.text_area("", value=default_kw_str, height=80)
+                
+            # Dividimos los dos campos de abajo en la misma columna
+            col_importe, col_fecha = st.columns(2)
+            with col_importe:
+                st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
+                limite_presupuesto = st.number_input("", value=default_limite, step=50000, format="%d")
+                
+            with col_fecha:
+                st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Fecha mínima Fin de Plazo:</p>", unsafe_allow_html=True)
+                fecha_minima = st.date_input("", value=default_fecha, format="DD/MM/YYYY")
             
-        # GUARDADO AUTOMÁTICO EN TIEMPO REAL
-        guardar_configuracion(keywords_activas, limite_presupuesto, fecha_minima)
+            if keywords_input.strip():
+                keywords_activas = [k.strip() for k in keywords_input.split(',') if k.strip()]
+            else:
+                keywords_activas = []
+                
+            # Botones situados debajo de los filtros
+            c_btn1, c_btn2 = st.columns(2)
+            with c_btn1:
+                btn_buscar = st.button("Actualizar y Buscar Ahora", type="primary", use_container_width=True)
+            with c_btn2:
+                btn_guardar = st.button("💾 Guardar Filtros por Defecto", use_container_width=True)
+
+        # Lógica explícita de guardado manual
+        if btn_guardar:
+            guardar_configuracion(keywords_activas, limite_presupuesto, fecha_minima)
+            st.success("✅ ¡Filtros guardados con éxito! Se cargarán automáticamente cuando inicies sesión.")
         
-        if st.button("Actualizar y Buscar Ahora", type="primary"):
+        # Ejecución del buscador
+        if btn_buscar:
             if not keywords_activas:
                 st.warning("⚠️ Introduce al menos una palabra clave para iniciar la búsqueda.")
             else:
@@ -413,7 +429,7 @@ if check_password():
                     paginas_a_escanear = 15 
                     paginas_leidas = 0
                     ofertas_descartadas_por_precio = 0 
-                    ofertas_descartadas_por_fecha = 0 # Nuevo contador
+                    ofertas_descartadas_por_fecha = 0 
                     
                     # Motor de Paginación Mejorado
                     for pagina in range(paginas_a_escanear):
@@ -441,7 +457,7 @@ if check_password():
                                     f_cierre = extraer_fecha_cierre(e, res)
                                     es_valida = True
                                     
-                                    # FILTRO POR FECHA DE CIERRE (Mínimo indicado en la web)
+                                    # FILTRO POR FECHA DE CIERRE
                                     if f_cierre != "No indicada":
                                         try:
                                             partes = f_cierre.split('/')
@@ -490,7 +506,7 @@ if check_password():
                     vistos = {o["Enlace Oficial"] for o in hist}
                     nuevas = [o for o in encontradas if o["Enlace Oficial"] not in vistos]
                     
-                    # Mensajes dinámicos de los filtros para informar al usuario
+                    # Mensajes dinámicos
                     texto_filtros = ""
                     if ofertas_descartadas_por_precio > 0:
                         texto_filtros += f"🚫 {ofertas_descartadas_por_precio} descartadas por debajo de {limite_presupuesto:,.0f} €. "
