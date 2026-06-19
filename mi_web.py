@@ -389,8 +389,8 @@ if check_password():
             st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
             keywords_input = st.text_area("", value=default_kw_str, height=80)
                 
-        # 2. Cajetines numéricos y de fecha mucho más cortos, ajustados a la longitud de sus títulos
-        col_importe, col_fecha, col_vacia2 = st.columns([1, 1.2, 3.8])
+        # 2. Cajetines numéricos y de fecha SÚPER COMPACTOS (usando proporciones 0.6 y una columna vacía enorme)
+        col_importe, col_fecha, col_vacia2 = st.columns([0.6, 0.6, 4.8])
         with col_importe:
             st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
             limite_presupuesto = st.number_input("", value=default_limite, step=50000, format="%d")
