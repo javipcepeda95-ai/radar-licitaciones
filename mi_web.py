@@ -408,11 +408,12 @@ if check_password():
         else:
             keywords_activas = []
             
-        # 4. Botones apilados verticalmente y alineados con el mismo ancho
+        # 4. Botones alineados horizontalmente
         st.write("") 
-        col_btns, col_vacia4 = st.columns([1.2, 4.8])
-        with col_btns:
+        col_btn_guardar, col_btn_buscar, col_vacia4 = st.columns([1.2, 1.2, 3.6])
+        with col_btn_guardar:
             btn_guardar = st.button("💾 Guardar Filtros", use_container_width=True)
+        with col_btn_buscar:
             btn_buscar = st.button("🔍 Buscar Licitaciones", type="primary", use_container_width=True)
 
         # Lógica explícita de guardado manual
