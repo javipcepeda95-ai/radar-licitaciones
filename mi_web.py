@@ -381,35 +381,36 @@ if check_password():
         except:
             default_fecha = datetime.now().date()
         
-        # --- CONTENEDOR COMPACTO PARA MEJORAR LA ESTÉTICA ---
-        # Usamos columnas para que los campos no se estiren de lado a lado
-        col_filtros_main, col_vacia = st.columns([2.5, 1.5])
+        # --- CONTENEDOR ESTÉTICO MEJORADO ---
         
-        with col_filtros_main:
+        # 1. Cajetín de palabras clave más alargado
+        col_keywords, col_vacia1 = st.columns([4, 1])
+        with col_keywords:
             st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
             keywords_input = st.text_area("", value=default_kw_str, height=80)
                 
-            # Dividimos los dos campos de abajo en la misma columna
-            col_importe, col_fecha = st.columns(2)
-            with col_importe:
-                st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
-                limite_presupuesto = st.number_input("", value=default_limite, step=50000, format="%d")
-                
-            with col_fecha:
-                st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Fecha mínima Fin de Plazo:</p>", unsafe_allow_html=True)
-                fecha_minima = st.date_input("", value=default_fecha, format="DD/MM/YYYY")
+        # 2. Cajetines numéricos y de fecha mucho más cortos (usando una columna vacía grande de tope)
+        col_importe, col_fecha, col_vacia2 = st.columns([1.5, 1.5, 3])
+        with col_importe:
+            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
+            limite_presupuesto = st.number_input("", value=default_limite, step=50000, format="%d")
             
-            if keywords_input.strip():
-                keywords_activas = [k.strip() for k in keywords_input.split(',') if k.strip()]
-            else:
-                keywords_activas = []
-                
-            # Botones situados debajo de los filtros
-            c_btn1, c_btn2 = st.columns(2)
-            with c_btn1:
-                btn_buscar = st.button("Actualizar y Buscar Ahora", type="primary", use_container_width=True)
-            with c_btn2:
-                btn_guardar = st.button("💾 Guardar Filtros por Defecto", use_container_width=True)
+        with col_fecha:
+            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Fecha mínima Fin de Plazo:</p>", unsafe_allow_html=True)
+            fecha_minima = st.date_input("", value=default_fecha, format="DD/MM/YYYY")
+        
+        if keywords_input.strip():
+            keywords_activas = [k.strip() for k in keywords_input.split(',') if k.strip()]
+        else:
+            keywords_activas = []
+            
+        # 3. Botones más cortos para que no se estiren feo
+        st.write("") # Un pequeño espacio vertical
+        c_btn1, c_btn2, c_btn_vacia = st.columns([1.5, 1.5, 3])
+        with c_btn1:
+            btn_buscar = st.button("Actualizar y Buscar Ahora", type="primary", use_container_width=True)
+        with c_btn2:
+            btn_guardar = st.button("💾 Guardar Filtros por Defecto", use_container_width=True)
 
         # Lógica explícita de guardado manual
         if btn_guardar:
