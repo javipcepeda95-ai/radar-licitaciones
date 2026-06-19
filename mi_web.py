@@ -389,17 +389,17 @@ if check_password():
             st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: 5px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
             keywords_input = st.text_area("Filtros", value=default_kw_str, height=80, label_visibility="collapsed")
                 
-        # 2. Importe mínimo: Título y Cajetín corto pegados uno al otro
-        col_lbl_imp, col_inp_imp, col_vacia2 = st.columns([0.9, 0.6, 4.5])
+        # 2. Importe mínimo: Título ajustado y Cajetín pegado a continuación
+        col_lbl_imp, col_inp_imp, col_vacia2 = st.columns([0.6, 0.6, 4.8])
         with col_lbl_imp:
-            st.markdown("<div style='margin-top: 6px;'><p style='font-size: 1rem; font-weight: 600; margin: 0; color: var(--anerpro-blue);'>Importe mínimo (€):</p></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top: 6px;'><p style='font-size: 1rem; font-weight: 600; margin: 0; color: var(--anerpro-blue); white-space: nowrap;'>Importe mínimo (€):</p></div>", unsafe_allow_html=True)
         with col_inp_imp:
             limite_presupuesto = st.number_input("Importe", value=default_limite, step=50000, format="%d", label_visibility="collapsed")
             
-        # 3. Fecha Fin de Plazo: Título y Cajetín corto pegados uno al otro
-        col_lbl_fec, col_inp_fec, col_vacia3 = st.columns([0.9, 0.6, 4.5])
+        # 3. Fecha Fin de Plazo: Título ajustado y Cajetín pegado a continuación
+        col_lbl_fec, col_inp_fec, col_vacia3 = st.columns([0.6, 0.6, 4.8])
         with col_lbl_fec:
-            st.markdown("<div style='margin-top: 6px;'><p style='font-size: 1rem; font-weight: 600; margin: 0; color: var(--anerpro-blue);'>Fecha Fin de Plazo:</p></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top: 6px;'><p style='font-size: 1rem; font-weight: 600; margin: 0; color: var(--anerpro-blue); white-space: nowrap;'>Fecha Fin de Plazo:</p></div>", unsafe_allow_html=True)
         with col_inp_fec:
             fecha_minima = st.date_input("Fecha", value=default_fecha, format="DD/MM/YYYY", label_visibility="collapsed")
         
