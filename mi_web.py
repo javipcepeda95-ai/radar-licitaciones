@@ -383,30 +383,34 @@ if check_password():
         
         # --- CONTENEDOR ESTÉTICO MEJORADO ---
         
-        # 1. Cajetín de palabras clave ligeramente más alargado
+        # 1. Cajetín de palabras clave más alargado
         col_keywords, col_vacia1 = st.columns([5, 1])
         with col_keywords:
-            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
-            keywords_input = st.text_area("", value=default_kw_str, height=80)
+            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: 5px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
+            keywords_input = st.text_area("Filtros", value=default_kw_str, height=80, label_visibility="collapsed")
                 
-        # 2. Cajetines numéricos y de fecha SÚPER COMPACTOS (usando proporciones 0.6 y una columna vacía enorme)
-        col_importe, col_fecha, col_vacia2 = st.columns([0.6, 0.6, 4.8])
-        with col_importe:
-            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
-            limite_presupuesto = st.number_input("", value=default_limite, step=50000, format="%d")
+        # 2. Importe mínimo (Inline) - Título a la izq y cajetín a la der, todo en la misma línea
+        col_lbl_imp, col_inp_imp, col_vacia2 = st.columns([1.3, 1.2, 3.5])
+        with col_lbl_imp:
+            st.markdown("<div style='margin-top: 5px;'><p style='font-size: 1rem; font-weight: 600; color: var(--anerpro-blue);'>Importe mínimo (€):</p></div>", unsafe_allow_html=True)
+        with col_inp_imp:
+            limite_presupuesto = st.number_input("Importe", value=default_limite, step=50000, format="%d", label_visibility="collapsed")
             
-        with col_fecha:
-            st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Fecha mínima Fin de Plazo:</p>", unsafe_allow_html=True)
-            fecha_minima = st.date_input("", value=default_fecha, format="DD/MM/YYYY")
+        # 3. Fecha Fin de Plazo (Inline y debajo del importe)
+        col_lbl_fec, col_inp_fec, col_vacia3 = st.columns([1.3, 1.2, 3.5])
+        with col_lbl_fec:
+            st.markdown("<div style='margin-top: 5px;'><p style='font-size: 1rem; font-weight: 600; color: var(--anerpro-blue);'>Fecha Fin de Plazo:</p></div>", unsafe_allow_html=True)
+        with col_inp_fec:
+            fecha_minima = st.date_input("Fecha", value=default_fecha, format="DD/MM/YYYY", label_visibility="collapsed")
         
         if keywords_input.strip():
             keywords_activas = [k.strip() for k in keywords_input.split(',') if k.strip()]
         else:
             keywords_activas = []
             
-        # 3. Botones apilados verticalmente y más cortos
+        # 4. Botones apilados verticalmente y más cortos
         st.write("") # Un pequeño espacio vertical
-        col_btns, col_vacia3 = st.columns([1.5, 4.5])
+        col_btns, col_vacia4 = st.columns([1.5, 4.5])
         with col_btns:
             btn_guardar = st.button("💾 Guardar Filtros por Defecto", use_container_width=True)
             btn_buscar = st.button("Actualizar y Buscar Ahora", type="primary", use_container_width=True)
