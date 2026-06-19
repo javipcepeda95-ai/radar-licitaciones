@@ -383,14 +383,14 @@ if check_password():
         
         # --- CONTENEDOR ESTÉTICO MEJORADO ---
         
-        # 1. Cajetín de palabras clave más alargado
-        col_keywords, col_vacia1 = st.columns([4, 1])
+        # 1. Cajetín de palabras clave ligeramente más alargado
+        col_keywords, col_vacia1 = st.columns([5, 1])
         with col_keywords:
             st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Filtros de Búsqueda (separados por comas):</p>", unsafe_allow_html=True)
             keywords_input = st.text_area("", value=default_kw_str, height=80)
                 
-        # 2. Cajetines numéricos y de fecha mucho más cortos (usando una columna vacía grande de tope)
-        col_importe, col_fecha, col_vacia2 = st.columns([1.5, 1.5, 3])
+        # 2. Cajetines numéricos y de fecha mucho más cortos, ajustados a la longitud de sus títulos
+        col_importe, col_fecha, col_vacia2 = st.columns([1, 1.2, 3.8])
         with col_importe:
             st.markdown("<p style='font-size: 1rem; font-weight: 600; margin-bottom: -10px; color: var(--anerpro-blue);'>Importe mínimo (€):</p>", unsafe_allow_html=True)
             limite_presupuesto = st.number_input("", value=default_limite, step=50000, format="%d")
@@ -404,13 +404,12 @@ if check_password():
         else:
             keywords_activas = []
             
-        # 3. Botones más cortos para que no se estiren feo
+        # 3. Botones apilados verticalmente y más cortos
         st.write("") # Un pequeño espacio vertical
-        c_btn1, c_btn2, c_btn_vacia = st.columns([1.5, 1.5, 3])
-        with c_btn1:
-            btn_buscar = st.button("Actualizar y Buscar Ahora", type="primary", use_container_width=True)
-        with c_btn2:
+        col_btns, col_vacia3 = st.columns([1.5, 4.5])
+        with col_btns:
             btn_guardar = st.button("💾 Guardar Filtros por Defecto", use_container_width=True)
+            btn_buscar = st.button("Actualizar y Buscar Ahora", type="primary", use_container_width=True)
 
         # Lógica explícita de guardado manual
         if btn_guardar:
