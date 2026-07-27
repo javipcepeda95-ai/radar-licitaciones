@@ -440,35 +440,51 @@ if check_password():
                     ofertas_descartadas_por_precio = 0 
                     ofertas_descartadas_por_fecha = 0 
                     
-                    # Motor de Paginación Mejorado
+                    # Motor de Paginación Mejorado con requests para lidiar con el bloqueo del Estado
                     for pagina in range(paginas_a_escanear):
                         if not url_actual: break 
                         
                         try:
-                            # Esto es clave para que el Estado no nos bloquee
-                            feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                            # 1. Configurar un User-Agent MUY específico para engañar al firewall
+                            headers = {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                                'Accept': 'application/atom+xml,application/xml,text/xml',
+                                'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+                                'Connection': 'keep-alive'
+                            }
                             
-                            # Dejamos que feedparser haga la conexión directamente, él sabe lidiar con el formato del Estado
-                            feed = feedparser.parse(url_actual)
+                            # 2. Hacemos la petición con requests ignorando certificados SSL defectuosos (muy común en el Estado)
+                            response = requests.get(url_actual, headers=headers, verify=False, timeout=20)
                             
-                            # Comprobamos si el feed tiene un código de estado devuelto
-                            if hasattr(feed, 'status'):
-                                if feed.status in [403, 401]:
-                                    if pagina == 0:
-                                        st.error(f"❌ Acceso denegado (Error {feed.status}). El Estado ha bloqueado temporalmente nuestra IP.")
-                                    break
-                                elif feed.status >= 500:
-                                    if pagina == 0:
-                                        st.error(f"❌ El servidor del Estado está caído o fallando (Error {feed.status}).")
-                                    break
+                            # 3. Comprobamos si el Estado nos ha bloqueado o está caído
+                            if response.status_code in [401, 403]:
+                                if pagina == 0:
+                                    st.error(f"❌ Acceso denegado (Error {response.status_code}). El cortafuegos del Estado ha bloqueado temporalmente nuestra IP por considerarla un robot.")
+                                break
+                            elif response.status_code >= 500:
+                                if pagina == 0:
+                                    st.error(f"❌ El servidor del Estado está caído o fallando (Error {response.status_code}).")
+                                break
+                            elif response.status_code != 200:
+                                if pagina == 0:
+                                    st.error(f"❌ Error de conexión desconocido con el Estado: Código {response.status_code}.")
+                                break
+
+                            # 4. Le pasamos el texto bruto descargado a feedparser para que lo parsee localmente
+                            # Evitamos que feedparser haga la conexión de red él mismo
+                            feed = feedparser.parse(response.content)
 
                             if not feed.entries:
                                 if pagina == 0:
-                                    st.error("❌ El Estado ha devuelto una página vacía o en un formato irreconocible. El servicio podría estar temporalmente caído.")
+                                    st.error("❌ El Estado ha devuelto una respuesta vacía o un bloqueador (Captcha). Inténtalo de nuevo más tarde.")
                                 break
-                        except Exception as e:
+                        except requests.exceptions.RequestException as e:
                             if pagina == 0:
                                 st.error(f"❌ Fallo crítico de conexión de red con el Estado: {str(e)}")
+                            break
+                        except Exception as e:
+                            if pagina == 0:
+                                st.error(f"❌ Error interno procesando los datos del Estado: {str(e)}")
                             break
                             
                         paginas_leidas += 1
