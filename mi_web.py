@@ -440,32 +440,28 @@ if check_password():
                     ofertas_descartadas_por_precio = 0 
                     ofertas_descartadas_por_fecha = 0 
                     
-                    # Cabeceras extremas para evitar el bloqueo del Firewall del Estado
-                    headers_fake = {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-                        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-                        'Connection': 'keep-alive',
-                        'Upgrade-Insecure-Requests': '1'
-                    }
-                    
                     # Motor de Paginación Mejorado
                     for pagina in range(paginas_a_escanear):
                         if not url_actual: break 
                         
                         try:
-                            # Petición web engañando al firewall del Gobierno e ignorando errores SSL
-                            respuesta = requests.get(url_actual, headers=headers_fake, timeout=20, verify=False)
+                            # Esto es clave para que el Estado no nos bloquee
+                            feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
                             
-                            # Comprobar que no nos han baneado temporalmente
-                            if respuesta.status_code != 200:
-                                if pagina == 0:
-                                    st.error(f"❌ El servidor del Estado ha rechazado la conexión (Error HTTP {respuesta.status_code}). Inténtalo de nuevo en unos minutos.")
-                                break
+                            # Dejamos que feedparser haga la conexión directamente, él sabe lidiar con el formato del Estado
+                            feed = feedparser.parse(url_actual)
+                            
+                            # Comprobamos si el feed tiene un código de estado devuelto
+                            if hasattr(feed, 'status'):
+                                if feed.status in [403, 401]:
+                                    if pagina == 0:
+                                        st.error(f"❌ Acceso denegado (Error {feed.status}). El Estado ha bloqueado temporalmente nuestra IP.")
+                                    break
+                                elif feed.status >= 500:
+                                    if pagina == 0:
+                                        st.error(f"❌ El servidor del Estado está caído o fallando (Error {feed.status}).")
+                                    break
 
-                            # Parseamos el contenido devuelto en crudo
-                            feed = feedparser.parse(respuesta.content)
-                            
                             if not feed.entries:
                                 if pagina == 0:
                                     st.error("❌ El Estado ha devuelto una página vacía o en un formato irreconocible. El servicio podría estar temporalmente caído.")
