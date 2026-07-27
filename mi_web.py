@@ -10,8 +10,11 @@ import io
 import tempfile
 import time
 import requests
+import urllib3
 from google import genai
 from xhtml2pdf import pisa
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="📡", layout="wide")
@@ -398,7 +401,7 @@ if check_password():
             limite_presupuesto = st.number_input("Importe", value=default_limite, step=50000, format="%d", label_visibility="collapsed")
             
         # 3. Fecha Fin de Plazo: Título ajustado y Cajetín pegado a continuación
-        col_lbl_fec, col_inp_fec, col_vacia3 = st.columns([0.9, 0.6, 4.5])
+        col_lbl_fec, col_inp_fec, col_vacia3 = st.columns([0.6, 0.6, 4.8])
         with col_lbl_fec:
             st.markdown("<div style='margin-top: 6px;'><p style='font-size: 1rem; font-weight: 600; margin: 0; color: var(--anerpro-blue); white-space: nowrap;'>Fecha Fin de Plazo:</p></div>", unsafe_allow_html=True)
         with col_inp_fec:
@@ -409,9 +412,9 @@ if check_password():
         else:
             keywords_activas = []
             
-        # 4. Botones alineados horizontalmente (uno al lado del otro)
+        # 4. Botones alineados horizontalmente y más anchos para que quepan uno al lado del otro
         st.write("") 
-        col_btn_guardar, col_btn_buscar, col_vacia4 = st.columns([1.2, 1.4, 3.4])
+        col_btn_guardar, col_btn_buscar, col_vacia4 = st.columns([1.5, 1.5, 4.0])
         with col_btn_guardar:
             btn_guardar = st.button("💾 Guardar Filtros", use_container_width=True)
         with col_btn_buscar:
@@ -437,9 +440,13 @@ if check_password():
                     ofertas_descartadas_por_precio = 0 
                     ofertas_descartadas_por_fecha = 0 
                     
-                    # CABECERAS FALSAS: Nos hacemos pasar por Google Chrome para saltar el firewall
+                    # Cabeceras extremas para evitar el bloqueo del Firewall del Estado
                     headers_fake = {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1'
                     }
                     
                     # Motor de Paginación Mejorado
@@ -447,15 +454,25 @@ if check_password():
                         if not url_actual: break 
                         
                         try:
-                            # 1. Petición web engañando al firewall del Gobierno
-                            respuesta = requests.get(url_actual, headers=headers_fake, timeout=15)
+                            # Petición web engañando al firewall del Gobierno e ignorando errores SSL
+                            respuesta = requests.get(url_actual, headers=headers_fake, timeout=20, verify=False)
                             
-                            # 2. Parseamos el contenido devuelto en crudo
+                            # Comprobar que no nos han baneado temporalmente
+                            if respuesta.status_code != 200:
+                                if pagina == 0:
+                                    st.error(f"❌ El servidor del Estado ha rechazado la conexión (Error HTTP {respuesta.status_code}). Inténtalo de nuevo en unos minutos.")
+                                break
+
+                            # Parseamos el contenido devuelto en crudo
                             feed = feedparser.parse(respuesta.content)
                             
                             if not feed.entries:
+                                if pagina == 0:
+                                    st.error("❌ El Estado ha devuelto una página vacía o en un formato irreconocible. El servicio podría estar temporalmente caído.")
                                 break
-                        except Exception:
+                        except Exception as e:
+                            if pagina == 0:
+                                st.error(f"❌ Fallo crítico de conexión de red con el Estado: {str(e)}")
                             break
                             
                         paginas_leidas += 1
@@ -473,7 +490,7 @@ if check_password():
                                     f_cierre = extraer_fecha_cierre(e, res)
                                     es_valida = True
                                     
-                                    # FILTRO POR FECHA DE CIERRE (Tolerante con fechas vacías)
+                                    # FILTRO POR FECHA DE CIERRE
                                     if f_cierre != "No indicada":
                                         try:
                                             partes = f_cierre.split('/')
@@ -522,28 +539,29 @@ if check_password():
                     vistos = {o["Enlace Oficial"] for o in hist}
                     nuevas = [o for o in encontradas if o["Enlace Oficial"] not in vistos]
                     
-                    # Mensajes dinámicos
-                    texto_filtros = ""
-                    if ofertas_descartadas_por_precio > 0:
-                        texto_filtros += f"🚫 {ofertas_descartadas_por_precio} descartadas por debajo de {limite_presupuesto:,.0f} €. "
-                    if ofertas_descartadas_por_fecha > 0:
-                        texto_filtros += f"⏳ {ofertas_descartadas_por_fecha} descartadas por caducar antes del {fecha_minima.strftime('%d/%m/%Y')}. "
+                    # Mensajes dinámicos solo si hemos logrado leer páginas
+                    if paginas_leidas > 0:
+                        texto_filtros = ""
+                        if ofertas_descartadas_por_precio > 0:
+                            texto_filtros += f"🚫 {ofertas_descartadas_por_precio} descartadas por debajo de {limite_presupuesto:,.0f} €. "
+                        if ofertas_descartadas_por_fecha > 0:
+                            texto_filtros += f"⏳ {ofertas_descartadas_por_fecha} descartadas por caducar antes del {fecha_minima.strftime('%d/%m/%Y')}. "
 
-                    if nuevas:
-                        hist.extend(nuevas)
-                        with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4)
-                        st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones en las últimas {paginas_leidas} páginas del Estado!")
-                        if texto_filtros:
-                            st.info(texto_filtros)
-                        st.dataframe(pd.DataFrame(nuevas), column_config=config_tabla, hide_index=True, use_container_width=True)
-                    elif len(encontradas) > 0: 
-                        st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
-                        if texto_filtros:
-                            st.info(texto_filtros)
-                    else: 
-                        st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave y los límites de presupuesto/fecha.")
-                        if texto_filtros:
-                            st.info(f"Sin embargo, sí se encontraron ofertas que no pasaron los filtros: {texto_filtros}")
+                        if nuevas:
+                            hist.extend(nuevas)
+                            with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4)
+                            st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones en las últimas {paginas_leidas} páginas del Estado!")
+                            if texto_filtros:
+                                st.info(texto_filtros)
+                            st.dataframe(pd.DataFrame(nuevas), column_config=config_tabla, hide_index=True, use_container_width=True)
+                        elif len(encontradas) > 0: 
+                            st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
+                            if texto_filtros:
+                                st.info(texto_filtros)
+                        else: 
+                            st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave y los límites de presupuesto/fecha.")
+                            if texto_filtros:
+                                st.info(f"Sin embargo, sí se encontraron ofertas que no pasaron los filtros: {texto_filtros}")
 
     # --- VISTA 2: ARCHIVO ---
     elif "Archivo" in opcion:
