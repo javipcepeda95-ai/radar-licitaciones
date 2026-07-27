@@ -390,14 +390,14 @@ if check_password():
             keywords_input = st.text_area("Filtros", value=default_kw_str, height=80, label_visibility="collapsed")
                 
         # 2. Importe mínimo: Título ajustado y Cajetín pegado a continuación
-        col_lbl_imp, col_inp_imp, col_vacia2 = st.columns([0.6, 0.6, 4.8])
+        col_lbl_imp, col_inp_imp, col_vacia2 = st.columns([0.9, 0.6, 4.5])
         with col_lbl_imp:
             st.markdown("<div style='margin-top: 6px;'><p style='font-size: 1rem; font-weight: 600; margin: 0; color: var(--anerpro-blue); white-space: nowrap;'>Importe mínimo (€):</p></div>", unsafe_allow_html=True)
         with col_inp_imp:
             limite_presupuesto = st.number_input("Importe", value=default_limite, step=50000, format="%d", label_visibility="collapsed")
             
         # 3. Fecha Fin de Plazo: Título ajustado y Cajetín pegado a continuación
-        col_lbl_fec, col_inp_fec, col_vacia3 = st.columns([0.6, 0.6, 4.8])
+        col_lbl_fec, col_inp_fec, col_vacia3 = st.columns([0.9, 0.6, 4.5])
         with col_lbl_fec:
             st.markdown("<div style='margin-top: 6px;'><p style='font-size: 1rem; font-weight: 600; margin: 0; color: var(--anerpro-blue); white-space: nowrap;'>Fecha Fin de Plazo:</p></div>", unsafe_allow_html=True)
         with col_inp_fec:
@@ -462,7 +462,7 @@ if check_password():
                                     f_cierre = extraer_fecha_cierre(e, res)
                                     es_valida = True
                                     
-                                    # FILTRO POR FECHA DE CIERRE
+                                    # FILTRO POR FECHA DE CIERRE (Tolerante con fechas vacías)
                                     if f_cierre != "No indicada":
                                         try:
                                             partes = f_cierre.split('/')
