@@ -9,6 +9,7 @@ import re
 import io
 import tempfile
 import time
+import requests
 from google import genai
 from xhtml2pdf import pisa
 
@@ -408,9 +409,9 @@ if check_password():
         else:
             keywords_activas = []
             
-        # 4. Botones alineados horizontalmente
+        # 4. Botones alineados horizontalmente (uno al lado del otro)
         st.write("") 
-        col_btn_guardar, col_btn_buscar, col_vacia4 = st.columns([1.2, 1.2, 3.6])
+        col_btn_guardar, col_btn_buscar, col_vacia4 = st.columns([1.2, 1.4, 3.4])
         with col_btn_guardar:
             btn_guardar = st.button("💾 Guardar Filtros", use_container_width=True)
         with col_btn_buscar:
@@ -436,12 +437,22 @@ if check_password():
                     ofertas_descartadas_por_precio = 0 
                     ofertas_descartadas_por_fecha = 0 
                     
+                    # CABECERAS FALSAS: Nos hacemos pasar por Google Chrome para saltar el firewall
+                    headers_fake = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    }
+                    
                     # Motor de Paginación Mejorado
                     for pagina in range(paginas_a_escanear):
                         if not url_actual: break 
                         
                         try:
-                            feed = feedparser.parse(url_actual)
+                            # 1. Petición web engañando al firewall del Gobierno
+                            respuesta = requests.get(url_actual, headers=headers_fake, timeout=15)
+                            
+                            # 2. Parseamos el contenido devuelto en crudo
+                            feed = feedparser.parse(respuesta.content)
+                            
                             if not feed.entries:
                                 break
                         except Exception:
