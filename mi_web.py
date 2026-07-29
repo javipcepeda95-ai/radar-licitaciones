@@ -9,12 +9,8 @@ import re
 import io
 import tempfile
 import time
-import requests
-import urllib3
 from google import genai
 from xhtml2pdf import pisa
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Radar Pro Anerpro", page_icon="📡", layout="wide")
@@ -206,20 +202,21 @@ def check_password():
         if os.path.exists("logo2.png"):
             _, mid_logo, _ = st.columns([1, 1.2, 1])
             with mid_logo:
-                st.image("logo2.png", use_container_width=True)
+                st.image("logo2.png", width="stretch")
         elif os.path.exists("logo2.jpg"): 
             _, mid_logo, _ = st.columns([1, 1.2, 1])
             with mid_logo:
-                st.image("logo2.jpg", use_container_width=True)
+                st.image("logo2.jpg", width="stretch")
         elif os.path.exists("logo.png"): 
             _, mid_logo, _ = st.columns([1, 1.2, 1])
             with mid_logo:
-                st.image("logo.png", use_container_width=True)
+                st.image("logo.png", width="stretch")
             
         st.markdown("<h3 style='text-align: center; color: #31333F; margin-top: 10px;'>bib analista de licitaciones</h3>", unsafe_allow_html=True)
         
         with st.form("login_form"):
             pwd = st.text_input("Contraseña corporativa:", type="password")
+            # En st.form_submit_button mantenemos use_container_width temporalmente si es necesario o probamos si soporta el nuevo
             if st.form_submit_button("Entrar", use_container_width=True):
                 if pwd == st.secrets["PASSWORD_WEB"]:
                     st.session_state["password_correct"] = True
@@ -394,7 +391,7 @@ if check_password():
             keywords_input = st.text_area("Filtros", value=default_kw_str, height=80, label_visibility="collapsed")
                 
         # 2. Importe mínimo: Título ajustado y Cajetín pegado a continuación
-        col_lbl_imp, col_inp_imp, col_vacia2 = st.columns([0.9, 0.6, 4.5])
+        col_lbl_imp, col_inp_imp, col_vacia2 = st.columns([0.6, 0.6, 4.8])
         with col_lbl_imp:
             st.markdown("<div style='margin-top: 6px;'><p style='font-size: 1rem; font-weight: 600; margin: 0; color: var(--anerpro-blue); white-space: nowrap;'>Importe mínimo (€):</p></div>", unsafe_allow_html=True)
         with col_inp_imp:
@@ -412,9 +409,9 @@ if check_password():
         else:
             keywords_activas = []
             
-        # 4. Botones alineados horizontalmente y más anchos para que quepan uno al lado del otro
+        # 4. Botones alineados horizontalmente
         st.write("") 
-        col_btn_guardar, col_btn_buscar, col_vacia4 = st.columns([1.5, 1.5, 4.0])
+        col_btn_guardar, col_btn_buscar, col_vacia4 = st.columns([1.5, 1.5, 3.0])
         with col_btn_guardar:
             btn_guardar = st.button("💾 Guardar Filtros", use_container_width=True)
         with col_btn_buscar:
@@ -440,51 +437,17 @@ if check_password():
                     ofertas_descartadas_por_precio = 0 
                     ofertas_descartadas_por_fecha = 0 
                     
-                    # Motor de Paginación Mejorado con requests para lidiar con el bloqueo del Estado
+                    # Motor de Paginación Mejorado
                     for pagina in range(paginas_a_escanear):
                         if not url_actual: break 
                         
                         try:
-                            # 1. Configurar un User-Agent MUY específico para engañar al firewall
-                            headers = {
-                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                                'Accept': 'application/atom+xml,application/xml,text/xml',
-                                'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-                                'Connection': 'keep-alive'
-                            }
-                            
-                            # 2. Hacemos la petición con requests ignorando certificados SSL defectuosos (muy común en el Estado)
-                            response = requests.get(url_actual, headers=headers, verify=False, timeout=20)
-                            
-                            # 3. Comprobamos si el Estado nos ha bloqueado o está caído
-                            if response.status_code in [401, 403]:
-                                if pagina == 0:
-                                    st.error(f"❌ Acceso denegado (Error {response.status_code}). El cortafuegos del Estado ha bloqueado temporalmente nuestra IP por considerarla un robot.")
-                                break
-                            elif response.status_code >= 500:
-                                if pagina == 0:
-                                    st.error(f"❌ El servidor del Estado está caído o fallando (Error {response.status_code}).")
-                                break
-                            elif response.status_code != 200:
-                                if pagina == 0:
-                                    st.error(f"❌ Error de conexión desconocido con el Estado: Código {response.status_code}.")
-                                break
-
-                            # 4. Le pasamos el texto bruto descargado a feedparser para que lo parsee localmente
-                            # Evitamos que feedparser haga la conexión de red él mismo
-                            feed = feedparser.parse(response.content)
-
+                            # Al ejecutarse en local (fuera de Streamlit Cloud) 
+                            # ya no necesitamos camuflarnos.
+                            feed = feedparser.parse(url_actual)
                             if not feed.entries:
-                                if pagina == 0:
-                                    st.error("❌ El Estado ha devuelto una respuesta vacía o un bloqueador (Captcha). Inténtalo de nuevo más tarde.")
                                 break
-                        except requests.exceptions.RequestException as e:
-                            if pagina == 0:
-                                st.error(f"❌ Fallo crítico de conexión de red con el Estado: {str(e)}")
-                            break
-                        except Exception as e:
-                            if pagina == 0:
-                                st.error(f"❌ Error interno procesando los datos del Estado: {str(e)}")
+                        except Exception:
                             break
                             
                         paginas_leidas += 1
@@ -551,29 +514,29 @@ if check_password():
                     vistos = {o["Enlace Oficial"] for o in hist}
                     nuevas = [o for o in encontradas if o["Enlace Oficial"] not in vistos]
                     
-                    # Mensajes dinámicos solo si hemos logrado leer páginas
-                    if paginas_leidas > 0:
-                        texto_filtros = ""
-                        if ofertas_descartadas_por_precio > 0:
-                            texto_filtros += f"🚫 {ofertas_descartadas_por_precio} descartadas por debajo de {limite_presupuesto:,.0f} €. "
-                        if ofertas_descartadas_por_fecha > 0:
-                            texto_filtros += f"⏳ {ofertas_descartadas_por_fecha} descartadas por caducar antes del {fecha_minima.strftime('%d/%m/%Y')}. "
+                    # Mensajes dinámicos
+                    texto_filtros = ""
+                    if ofertas_descartadas_por_precio > 0:
+                        texto_filtros += f"🚫 {ofertas_descartadas_por_precio} descartadas por debajo de {limite_presupuesto:,.0f} €. "
+                    if ofertas_descartadas_por_fecha > 0:
+                        texto_filtros += f"⏳ {ofertas_descartadas_por_fecha} descartadas por caducar antes del {fecha_minima.strftime('%d/%m/%Y')}. "
 
-                        if nuevas:
-                            hist.extend(nuevas)
-                            with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4)
-                            st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones en las últimas {paginas_leidas} páginas del Estado!")
-                            if texto_filtros:
-                                st.info(texto_filtros)
-                            st.dataframe(pd.DataFrame(nuevas), column_config=config_tabla, hide_index=True, use_container_width=True)
-                        elif len(encontradas) > 0: 
-                            st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
-                            if texto_filtros:
-                                st.info(texto_filtros)
-                        else: 
-                            st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave y los límites de presupuesto/fecha.")
-                            if texto_filtros:
-                                st.info(f"Sin embargo, sí se encontraron ofertas que no pasaron los filtros: {texto_filtros}")
+                    if nuevas:
+                        hist.extend(nuevas)
+                        with open(ARCHIVO_HISTORIAL, 'w', encoding='utf-8') as f: json.dump(hist, f, indent=4)
+                        st.success(f"¡Detectadas {len(nuevas)} nuevas licitaciones en las últimas {paginas_leidas} páginas del Estado!")
+                        if texto_filtros:
+                            st.info(texto_filtros)
+                        # Nota: st.dataframe todavía requiere use_container_width en algunas versiones, pero fallará con el mismo warning si ya cambió la API
+                        st.dataframe(pd.DataFrame(nuevas), column_config=config_tabla, hide_index=True, use_container_width=True)
+                    elif len(encontradas) > 0: 
+                        st.info(f"Se han escaneado {paginas_leidas} páginas del Estado y detectado {len(encontradas)} ofertas con tus criterios, pero ya están todas guardadas en tu 'Archivo e Informes'. No hay novedades recientes.")
+                        if texto_filtros:
+                            st.info(texto_filtros)
+                    else: 
+                        st.info("No se ha encontrado ninguna oferta vigente en la plataforma con tus palabras clave y los límites de presupuesto/fecha.")
+                        if texto_filtros:
+                            st.info(f"Sin embargo, sí se encontraron ofertas que no pasaron los filtros: {texto_filtros}")
 
     # --- VISTA 2: ARCHIVO ---
     elif "Archivo" in opcion:
@@ -654,7 +617,13 @@ if check_password():
 
                     for r in rutas: os.remove(r)
                     
-                    datos = json.loads(response.text.strip().replace("```json", "").replace("```", ""))
+                    # Regex brutal para atrapar solo el JSON por si Gemini añade texto residual
+                    match = re.search(r'\{.*\}', response.text, re.DOTALL)
+                    if match:
+                        json_str = match.group(0)
+                        datos = json.loads(json_str)
+                    else:
+                        raise ValueError("No se pudo extraer JSON de la respuesta.")
                     
                     st.markdown("---")
                     st.markdown(f"<h2 style='text-align: center; color: var(--anerpro-blue);'>{datos.get('titulo_oferta', 'Análisis de Licitación')}</h2>", unsafe_allow_html=True)
