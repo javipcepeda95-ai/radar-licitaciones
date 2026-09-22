@@ -11,6 +11,8 @@ import tempfile
 import time
 import requests
 import urllib3
+import urllib.request
+import ssl
 from google import genai
 from xhtml2pdf import pisa
 
@@ -184,6 +186,45 @@ if check_password():
                 except: return []
         return []
 
+    # --- FUNCIÓN ANTI-BLOQUEO PARA PORTALES REGIONALES ---
+    def obtener_contenido_feed(url):
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.9',
+            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
+        
+        # Intento 1: Librería estandar Requests
+        try:
+            res = requests.get(url, headers=headers, verify=False, timeout=25, allow_redirects=True)
+            res.raise_for_status()
+            return res.content
+        except Exception as e1:
+            print(f"Intento 1 falló para {url}: {e1}")
+            
+            # Intento 2: Librería urllib (A veces esquiva bloqueos de TLS/SSL regionales)
+            try:
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, context=ctx, timeout=25) as res2:
+                    return res2.read()
+            except Exception as e2:
+                print(f"Intento 2 falló para {url}: {e2}")
+                
+                # Intento 3: Requests con persistencia de Sesión (para portales con cookies)
+                try:
+                    session = requests.Session()
+                    res3 = session.get(url, headers=headers, verify=False, timeout=25)
+                    res3.raise_for_status()
+                    return res3.content
+                except Exception as e3:
+                    print(f"Intento 3 falló para {url}: {e3}")
+                    raise e3 # Si fallan los 3, lanzamos el error para que el programa avise
+
     # --- 6. BARRA LATERAL ---
     with st.sidebar:
         if os.path.exists("logo.png"): st.image("logo.png", width=140)
@@ -263,20 +304,16 @@ if check_password():
                     progreso_ui.info(f"📡 Rastreador activo conectando con: **{nombre_plataforma}**...")
                     
                     url_actual = url_base
-                    paginas_a_escanear = 15 if "Estado" in nombre_plataforma else 3 
+                    paginas_a_escanear = 15 if "Estado" in nombre_plataforma or "Andalucía" in nombre_plataforma else 3 
                     
                     for pagina in range(paginas_a_escanear):
                         if not url_actual: break 
                         
                         try:
-                            headers = {
-                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-                                'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml'
-                            }
-                            response = requests.get(url_actual, headers=headers, verify=False, timeout=15)
-                            response.raise_for_status()
+                            # --- NUEVO SISTEMA DE CONEXIÓN ROBUSTO ---
+                            contenido_xml = obtener_contenido_feed(url_actual)
+                            feed = feedparser.parse(contenido_xml)
                             
-                            feed = feedparser.parse(response.content)
                             if not feed.entries: break
                             
                             for e in feed.entries:
@@ -336,6 +373,7 @@ if check_password():
                             url_actual = url_siguiente 
                             
                         except Exception as ex:
+                            print(f"Error final en {nombre_plataforma}: {ex}")
                             errores_plataformas.append(nombre_plataforma)
                             break 
                             
@@ -346,7 +384,7 @@ if check_password():
                 barra_progreso.empty()
 
                 if errores_plataformas:
-                    st.warning(f"⚠️ Las siguientes plataformas rechazaron la conexión o su servidor está caído: {', '.join(set(errores_plataformas))}")
+                    st.warning(f"⚠️ Los firewalls de las siguientes plataformas han bloqueado la conexión, incluso tras 3 intentos. Intentaremos conectar la próxima vez: {', '.join(set(errores_plataformas))}")
 
                 hist = cargar_historial()
                 vistos = {o["Enlace Oficial"] for o in hist}
